@@ -53,6 +53,7 @@ main{flex:1;position:relative;overflow:hidden}
 nav{display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;border:none;background:none;padding:8px 0 6px;color:var(--sub);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav button span{font-size:20px;line-height:1}
+nav button i{font-style:normal}
 nav button.on{color:var(--accent);font-weight:700}
 
 .wrap{padding:12px 16px 24px;max-width:720px;margin:0 auto}
@@ -162,6 +163,7 @@ textarea{min-height:64px;resize:vertical}
 .tog{display:flex;flex-wrap:wrap;gap:6px}
 .tog button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:14px}
 .tog button.on{background:var(--pin);border-color:var(--pin);color:#fff}
+#langSel button.on{background:var(--accent);border-color:var(--accent)}
 
 .modal{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
 .modal.on{display:flex}
@@ -178,8 +180,8 @@ textarea{min-height:64px;resize:vertical}
 <body>
 <div id="updbar">新しい版があります · タップで更新</div>
 <header>
-  <h1>🌏 訪れた国</h1>
-  <div class="count"><b id="hdCount">0</b> / 195 か国</div>
+  <h1>🌏 <span data-en="Places I've Been">訪れた国</span></h1>
+  <div class="count"><b id="hdCount">0</b> / 195 <span data-en="countries">か国</span></div>
 </header>
 <main>
   <section class="view on" id="mapView">
@@ -189,10 +191,10 @@ textarea{min-height:64px;resize:vertical}
   </section>
   <section class="view" id="listView">
     <div class="search">
-      <input id="q" type="search" placeholder="国名を検索（日本語・英語）" autocomplete="off">
+      <input id="q" type="search" placeholder="国名を検索（日本語・英語）" data-en-ph="Search countries" autocomplete="off">
       <div class="chips" id="chips">
-        <button data-m="list" class="on">☰ リスト</button><button data-m="flags">🏳️ 国旗</button><span class="sep"></span>
-        <button data-f="all" class="on">すべて</button><button data-f="done">行った・住んだ</button><button data-f="l">住んだ</button><button data-f="t">乗り継ぎ</button><button data-f="w">行きたい</button><button data-f="none">まだ</button><button data-f="terr">地域も表示</button>
+        <button data-m="list" class="on" data-en="☰ List">☰ リスト</button><button data-m="flags" data-en="🏳️ Flags">🏳️ 国旗</button><span class="sep"></span>
+        <button data-f="all" class="on" data-en="All">すべて</button><button data-f="done" data-en="Been there">行った・住んだ</button><button data-f="l" data-en="Lived">住んだ</button><button data-f="t" data-en="Transit">乗り継ぎ</button><button data-f="w" data-en="Want to go">行きたい</button><button data-f="none" data-en="Not yet">まだ</button><button data-f="terr" data-en="Show territories">地域も表示</button>
       </div>
     </div>
     <div class="wrap" id="list" style="padding-top:0"></div>
@@ -200,61 +202,70 @@ textarea{min-height:64px;resize:vertical}
   <section class="view" id="statsView"><div class="wrap" id="stats"></div></section>
   <section class="view" id="setView"><div class="wrap">
     <div class="card">
-      <h2>色分け</h2>
-      <div id="colors"></div>
-      <button class="btn ghost small" id="colorReset" style="margin-top:10px">最初の色に戻す</button>
+      <h2>Language / 言語</h2>
+      <div class="tog" id="langSel"><button data-lang="en">English</button><button data-lang="ja">日本語</button></div>
     </div>
     <div class="card">
-      <h2>バックアップ</h2>
-      <p>記録はこの端末の中だけに保存されます（オフラインでも使えます）。機種変更やブラウザのデータ削除に備えて、ときどきファイルに保存してください。iPhoneは共有シート →「"ファイル"に保存」→ iCloud Drive がおすすめです。</p>
+      <h2 data-en="Colors">色分け</h2>
+      <div id="colors"></div>
+      <button class="btn ghost small" id="colorReset" style="margin-top:10px" data-en="Reset colors">最初の色に戻す</button>
+    </div>
+    <div class="card">
+      <h2 data-en="Backup">バックアップ</h2>
+      <p data-en="Your records are saved only on this device (it works offline). Save a backup file from time to time, in case you change phones or your browser data is deleted. On iPhone: Share sheet → &quot;Save to Files&quot; → iCloud Drive.">記録はこの端末の中だけに保存されます（オフラインでも使えます）。機種変更やブラウザのデータ削除に備えて、ときどきファイルに保存してください。iPhoneは共有シート →「"ファイル"に保存」→ iCloud Drive がおすすめです。</p>
       <div class="minis" id="bkInfo" style="margin-bottom:6px"></div>
       <p id="bkLast"></p>
-      <button class="btn" id="exportBtn">ファイルに保存</button>
-      <button class="btn ghost" id="importBtn">ファイルから戻す</button>
+      <button class="btn" id="exportBtn" data-en="Save to a file">ファイルに保存</button>
+      <button class="btn ghost" id="importBtn" data-en="Restore from a file">ファイルから戻す</button>
       <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
     </div>
     <div class="card">
-      <h2>ホーム画面に追加</h2>
-      <p>Safariで開いて 共有 →「ホーム画面に追加」すると、アプリのように開けて、圏外でも使えます。最初の1回だけネットが必要です。</p>
+      <h2 data-en="Add to Home Screen">ホーム画面に追加</h2>
+      <p data-en="Open this page in Safari, tap Share → &quot;Add to Home Screen&quot;. Then it opens like an app and works with no signal. You need the internet only the first time.">Safariで開いて 共有 →「ホーム画面に追加」すると、アプリのように開けて、圏外でも使えます。最初の1回だけネットが必要です。</p>
     </div>
     <div class="card">
-      <h2>数え方</h2>
-      <p>「か国」は国連加盟国193＋バチカン・パレスチナの195。「行った」と「住んだ」を数えます（乗り継ぎ・行きたいは数えません）。台湾・香港・グリーンランドなどは「地域」として別に数えます。</p>
-      <p>都市の回数は、その都市を入れた旅行の数です。都市は、アプリに入っている大きい都市のリスト（GeoNames、人口1.5万人以上、CC BY 4.0）と、ネットがあるときの「🌐 検索」（OpenStreetMap の地図データ、© OpenStreetMap contributors）で探せます。「🌐 検索」を押したときだけ、入力した名前が OpenStreetMap に送られます。見つからない町は名前だけで追加できます。「地図」ボタンは Google マップを開きます（ネットが必要）。</p>
+      <h2 data-en="How we count">数え方</h2>
+      <p data-en="&quot;Countries&quot; means the 193 UN members plus Vatican City and Palestine (195). &quot;Visited&quot; and &quot;Lived&quot; are counted; &quot;Transit&quot; and &quot;Want to go&quot; are not. Places like Taiwan, Hong Kong and Greenland are counted separately as territories.">「か国」は国連加盟国193＋バチカン・パレスチナの195。「行った」と「住んだ」を数えます（乗り継ぎ・行きたいは数えません）。台湾・香港・グリーンランドなどは「地域」として別に数えます。</p>
+      <p data-en="A city's visit count is the number of trips that include it. You can find cities in the built-in list of large cities (GeoNames, population 15,000+, CC BY 4.0), or with &quot;🌐 Search&quot; when you are online (OpenStreetMap map data, © OpenStreetMap contributors). The name you type is sent to OpenStreetMap only when you press &quot;🌐 Search&quot;. If a town is not found, you can add it by name. The &quot;Map&quot; button opens Google Maps (internet needed).">都市の回数は、その都市を入れた旅行の数です。都市は、アプリに入っている大きい都市のリスト（GeoNames、人口1.5万人以上、CC BY 4.0）と、ネットがあるときの「🌐 検索」（OpenStreetMap の地図データ、© OpenStreetMap contributors）で探せます。「🌐 検索」を押したときだけ、入力した名前が OpenStreetMap に送られます。見つからない町は名前だけで追加できます。「地図」ボタンは Google マップを開きます（ネットが必要）。</p>
     </div>
     <div class="card">
-      <h2>リセット</h2>
-      <button class="btn danger" id="resetBtn">すべての記録を消す</button>
+      <h2 data-en="Reset">リセット</h2>
+      <button class="btn danger" id="resetBtn" data-en="Delete all records">すべての記録を消す</button>
     </div>
     <p style="text-align:center;color:var(--sub);font-size:12px" id="ver"></p>
   </div></section>
 </main>
 <nav>
-  <button data-v="mapView" class="on"><span>🗺️</span>地図</button>
-  <button data-v="listView"><span>📋</span>リスト</button>
-  <button data-v="statsView"><span>📊</span>統計</button>
-  <button data-v="setView"><span>⚙️</span>設定</button>
+  <button data-v="mapView" class="on"><span>🗺️</span><i data-en="Map">地図</i></button>
+  <button data-v="listView"><span>📋</span><i data-en="List">リスト</i></button>
+  <button data-v="statsView"><span>📊</span><i data-en="Stats">統計</i></button>
+  <button data-v="setView"><span>⚙️</span><i data-en="Settings">設定</i></button>
 </nav>
 
 <div class="sheetbg" id="sheetbg"></div>
 <div class="sheet" id="sheet"></div>
 <div class="panel" id="panel"></div>
-<div class="modal" id="modal"><div class="box"><p id="modalMsg"></p><div class="row2"><button class="btn ghost" id="modalNo">やめる</button><button class="btn" id="modalYes">OK</button></div></div></div>
+<div class="modal" id="modal"><div class="box"><p id="modalMsg"></p><div class="row2"><button class="btn ghost" id="modalNo" data-en="Cancel">やめる</button><button class="btn" id="modalYes">OK</button></div></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/d3.min.js"></script>
 <script src="vendor/topojson-client.min.js"></script>
 <script src="countries.js"></script>
 <script>
-const APP_VERSION = 'v4';
-const CONT = {AS:'アジア',EU:'ヨーロッパ',AF:'アフリカ',NA:'北米・中米',SA:'南米',OC:'オセアニア',AN:'南極'};
+const APP_VERSION = 'v5';
+let LANG='en'; try{LANG=localStorage.getItem('visited.lang')||'en'}catch(e){}
+const L = LANG==='en';
+const tr = (ja,en) => L?en:ja;
+const pl = (n,w) => n+' '+w+(n===1?'':'s');
+const CONT = L?{AS:'Asia',EU:'Europe',AF:'Africa',NA:'North & Central America',SA:'South America',OC:'Oceania',AN:'Antarctica'}:{AS:'アジア',EU:'ヨーロッパ',AF:'アフリカ',NA:'北米・中米',SA:'南米',OC:'オセアニア',AN:'南極'};
 const CONT_ORDER = ['AS','EU','AF','NA','SA','OC','AN'];
-const ST = {v:'行った', l:'住んだ', t:'乗り継ぎ', w:'行きたい'};
+const ST = L?{v:'Visited', l:'Lived', t:'Transit', w:'Want to go'}:{v:'行った', l:'住んだ', t:'乗り継ぎ', w:'行きたい'};
 const ST_ORDER = ['v','l','t','w'];
 const DONE = s => s==='v'||s==='l';
 const PALETTE = ['#2a9d8f','#1d5c8a','#8e7cc3','#e9a23b','#e76f51','#d64f8a','#4caf50','#3f7fd9','#7a5c3e','#555f66'];
 const C = {};
 for (const r of COUNTRIES) C[r[0]] = {code:r[0],ja:r[1],en:r[2],cont:r[3],isC:!!r[4],lat:r[5],lng:r[6],shape:!!r[7],flag:r[8]||flagOf(r[0])};
+for (const c of Object.values(C)) c.nm = L?c.en:c.ja;
 function flagOf(a){return String.fromCodePoint(...[...a].map(ch=>0x1F1A5+ch.charCodeAt(0)))}
 const $ = s => document.querySelector(s);
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -324,7 +335,8 @@ function setStatus(code,s){
 function markVisited(code){const r=R(code); if(!r.s||r.s==='w'){r.s='v';r.t=r.t||Date.now()}}
 
 /* ---------- 都市・旅行の計算 ---------- */
-const cityName = c => c.ja||c.en;
+const cityName = c => L?(c.en||c.ja):(c.ja||c.en);
+const citySub = c => L?'':(c.en&&c.en!==cityName(c)?c.en:'');
 function cityCount(r,id){let n=0; for(const t of r.trips||[]) if(t.cs.includes(id)) n++; return Math.max(1,n)}
 function tripsSorted(r){return [...(r.trips||[])].sort((a,b)=>(b.f||'').localeCompare(a.f||''))}
 function firstYear(r){
@@ -333,10 +345,14 @@ function firstYear(r){
   return ds.length?ds[0].slice(0,4):(r.y||'');
 }
 function days(t){if(!t.f) return 0; const a=new Date(t.f), b=new Date(t.t||t.f); return Math.round((b-a)/864e5)+1}
-function fmtD(d){return d?d.replace(/-/g,'/'):'?'}
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtD(d){if(!d) return '?'; if(!L) return d.replace(/-/g,'/'); const [y,m,dd]=d.split('-'); return MON[m-1]+' '+(+dd)+', '+y}
 function fmtRange(t){
-  if(!t.f) return '日付なし';
+  if(!t.f) return tr('日付なし','No date');
   if(!t.t||t.t===t.f) return fmtD(t.f);
+  if(L){ const [y1,m1,d1]=t.f.split('-'), [y2,m2,d2]=t.t.split('-');
+    if(y1!==y2) return fmtD(t.f)+' – '+fmtD(t.t);
+    return MON[m1-1]+' '+(+d1)+' – '+(m1===m2?'':MON[m2-1]+' ')+(+d2)+', '+y1; }
   return fmtD(t.f)+' – '+(t.t.slice(0,4)===t.f.slice(0,4)?t.t.slice(5).replace('-','/'):fmtD(t.t));
 }
 function gmaps(c,code){
@@ -380,9 +396,9 @@ function toHex(c){if(/^#[0-9a-f]{6}$/i.test(c))return c;const m=c.match(/\d+/g);
 function setColor(k,c){state.colors[k]=c; applyColors(); save(); renderColors();}
 $('#colors').addEventListener('click',e=>{const b=e.target.closest('button[data-k]'); if(b) setColor(b.dataset.k,b.dataset.c)});
 $('#colors').addEventListener('change',e=>{if(e.target.dataset.k) setColor(e.target.dataset.k,e.target.value)});
-$('#colorReset').onclick=()=>{state.colors={}; applyColors(); save(); renderColors(); toast('最初の色に戻しました')};
+$('#colorReset').onclick=()=>{state.colors={}; applyColors(); save(); renderColors(); toast(tr('最初の色に戻しました','Colors reset'))};
 function renderLegend(){
-  $('#legend').innerHTML=ST_ORDER.map(k=>`<span><i style="background:var(--${k})"></i>${ST[k]}</span>`).join('')+'<span><i class="p"></i>都市</span>';
+  $('#legend').innerHTML=ST_ORDER.map(k=>`<span><i style="background:var(--${k})"></i>${ST[k]}</span>`).join('')+`<span><i class="p"></i>${tr('都市','Cities')}</span>`;
 }
 
 /* ---------- 地図 ---------- */
@@ -477,17 +493,17 @@ function openSheet(code){
   const trips=tripsSorted(r), cities=[...(r.cities||[])].map(x=>({...x,n:cityCount(r,x.id)})).sort((a,b)=>b.n-a.n);
   const sc=$('#sheet').scrollTop;
   $('#sheet').innerHTML=`
-    <div class="hd"><div class="flag">${c.flag}</div><div><h2>${esc(c.ja)}</h2><small>${esc(c.en)} · ${CONT[c.cont]}${c.isC?'':' · 地域'}</small></div><button class="x" data-a="close" aria-label="閉じる">✕</button></div>
-    <div class="seg">${ST_ORDER.map(k=>`<button data-s="${k}" class="${k} ${s===k?'on':''}">${ST[k]}</button>`).join('')}<button data-s="" class="n ${!s?'on':''}">なし</button></div>
-    <div class="sec"><div class="sh"><b>旅行<small>${trips.length?trips.length+'回':''}</small></b><button class="btn small" data-a="addTrip">＋ 旅行を追加</button></div>
-      ${trips.length?trips.map(t=>`<div class="trip" data-trip="${t.id}"><div class="d">${fmtRange(t)}${t.f?`<span>${days(t)}日間</span>`:''}</div>${t.cs.length?`<div class="cs">${t.cs.map(id=>esc(cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))).join('、')}</div>`:''}${t.n?`<div class="cs">${esc(t.n)}</div>`:''}</div>`).join(''):'<div class="muted">いつからいつまで行ったかと、回った都市を記録できます。</div>'}
+    <div class="hd"><div class="flag">${c.flag}</div><div><h2>${esc(c.nm)}</h2><small>${L?'':esc(c.en)+' · '}${CONT[c.cont]}${c.isC?'':tr(' · 地域',' · Territory')}</small></div><button class="x" data-a="close" aria-label="${tr('閉じる','Close')}">✕</button></div>
+    <div class="seg">${ST_ORDER.map(k=>`<button data-s="${k}" class="${k} ${s===k?'on':''}">${ST[k]}</button>`).join('')}<button data-s="" class="n ${!s?'on':''}">${tr('なし','None')}</button></div>
+    <div class="sec"><div class="sh"><b>${tr('旅行','Trips')}<small>${trips.length?tr(trips.length+'回',String(trips.length)):''}</small></b><button class="btn small" data-a="addTrip">${tr('＋ 旅行を追加','＋ Add a trip')}</button></div>
+      ${trips.length?trips.map(t=>`<div class="trip" data-trip="${t.id}"><div class="d">${fmtRange(t)}${t.f?`<span>${tr(days(t)+'日間',pl(days(t),'day'))}</span>`:''}</div>${t.cs.length?`<div class="cs">${t.cs.map(id=>esc(cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))).join(tr('、',', '))}</div>`:''}${t.n?`<div class="cs">${esc(t.n)}</div>`:''}</div>`).join(''):`<div class="muted">${tr('いつからいつまで行ったかと、回った都市を記録できます。','You can record when you went (from – to) and which cities you visited.')}</div>`}
     </div>
-    <div class="sec"><div class="sh"><b>都市<small>${cities.length?cities.length+'都市':''}</small></b><button class="btn small" data-a="addCity">＋ 都市を追加</button></div>
-      <div class="citylist">${cities.map(x=>`<div class="ci"><div class="cn">${esc(cityName(x))}${x.ja&&x.en!==x.ja?`<small>${esc(x.en)}</small>`:''}</div><span class="cnt">${x.n}回</span><a href="${gmaps(x,code)}" target="_blank" rel="noopener">地図</a><button class="ic" data-delcity="${x.id}" aria-label="削除">✕</button></div>`).join('')||'<div class="muted">まだありません</div>'}</div>
+    <div class="sec"><div class="sh"><b>${tr('都市','Cities')}<small>${cities.length?tr(cities.length+'都市',String(cities.length)):''}</small></b><button class="btn small" data-a="addCity">${tr('＋ 都市を追加','＋ Add a city')}</button></div>
+      <div class="citylist">${cities.map(x=>`<div class="ci"><div class="cn">${esc(cityName(x))}${citySub(x)?`<small>${esc(citySub(x))}</small>`:''}</div><span class="cnt">${tr(x.n+'回',x.n+'×')}</span><a href="${gmaps(x,code)}" target="_blank" rel="noopener">${tr('地図','Map')}</a><button class="ic" data-delcity="${x.id}" aria-label="${tr('削除','Delete')}">✕</button></div>`).join('')||`<div class="muted">${tr('まだありません','None yet')}</div>`}</div>
     </div>
-    ${trips.some(t=>t.f)?'':`<label class="lb">初めて行った年（旅行を入れない場合）</label><input id="shY" type="number" inputmode="numeric" placeholder="例 2023" value="${esc(r.y||'')}">`}
-    <label class="lb">メモ</label><textarea id="shN" placeholder="思い出など">${esc(r.n||'')}</textarea>
-    <button class="btn ghost" data-a="tomap" style="margin-top:14px">地図で見る</button>`;
+    ${trips.some(t=>t.f)?'':`<label class="lb">${tr('初めて行った年（旅行を入れない場合）','Year of first visit (if you don\'t add trips)')}</label><input id="shY" type="number" inputmode="numeric" placeholder="${tr('例 2023','e.g. 2023')}" value="${esc(r.y||'')}">`}
+    <label class="lb">${tr('メモ','Notes')}</label><textarea id="shN" placeholder="${tr('思い出など','Memories, etc.')}">${esc(r.n||'')}</textarea>
+    <button class="btn ghost" data-a="tomap" style="margin-top:14px">${tr('地図で見る','Show on map')}</button>`;
   if(!first) $('#sheet').scrollTop=sc; else $('#sheet').scrollTop=0;
   const upd=(k,v)=>{const r=R(code); if(v) r[k]=v; else delete r[k]; tidy(code); save(); changed({noSheet:true});};
   $('#shY')?.addEventListener('input',e=>upd('y',e.target.value.trim()));
@@ -506,7 +522,7 @@ $('#sheet').addEventListener('click',async e=>{
   const dc=t.closest('[data-delcity]');
   if(dc){
     const r=R(code), id=dc.dataset.delcity, city=r.cities.find(x=>x.id===id);
-    if(!await ask(`「${cityName(city)}」を消しますか？（旅行からも外れます）`,'消す')) return;
+    if(!await ask(tr(`「${cityName(city)}」を消しますか？（旅行からも外れます）`,`Delete "${cityName(city)}"? (It will also be removed from your trips.)`),tr('消す','Delete'))) return;
     r.cities=r.cities.filter(x=>x.id!==id); for(const tp of r.trips||[]) tp.cs=tp.cs.filter(x=>x!==id);
     tidy(code); save(); changed();
   }
@@ -532,33 +548,33 @@ function addCity(code,c){
 
 /* ---------- パネル（都市検索・旅行の編集） ---------- */
 function openPanel(title,body,onBack){
-  $('#panel').innerHTML=`<div class="ph"><button class="x" style="margin:0" id="pBack" aria-label="戻る">‹</button><h2>${esc(title)}</h2></div><div class="pb">${body}</div>`;
+  $('#panel').innerHTML=`<div class="ph"><button class="x" style="margin:0" id="pBack" aria-label="${tr('戻る','Back')}">‹</button><h2>${esc(title)}</h2></div><div class="pb">${body}</div>`;
   $('#panel').classList.add('on');
   $('#pBack').onclick=()=>{closePanel(); onBack&&onBack()};
 }
 function closePanel(){$('#panel').classList.remove('on'); $('#panel').innerHTML=''}
 
 function openCityPicker(code,{onPick,picked=new Set(),onBack}){
-  openPanel(C[code].ja+'の都市を追加',`
-    <form id="cform" class="osmbar"><input id="cq" type="search" placeholder="都市・町・場所（日本語・英語）" autocomplete="off" enterkeyhint="search"><button type="submit" class="btn small" id="osmBtn">🌐 検索</button></form>
+  openPanel(tr(C[code].nm+'の都市を追加','Add a city in '+C[code].nm),`
+    <form id="cform" class="osmbar"><input id="cq" type="search" placeholder="${tr('都市・町・場所（日本語・英語）','City, town or place')}" autocomplete="off" enterkeyhint="search"><button type="submit" class="btn small" id="osmBtn">${tr('🌐 検索','🌐 Search')}</button></form>
     <div class="muted" id="osmNote" style="margin-top:6px"></div>
     <div class="res" id="ores"></div>
-    <div class="res" id="cres"><div class="muted" style="padding:12px 0">読み込み中…</div></div>`,onBack);
+    <div class="res" id="cres"><div class="muted" style="padding:12px 0">${tr('読み込み中…','Loading…')}</div></div>`,onBack);
   const q=$('#cq'); q.focus();
   const r=rec(code)||{};
   const have=new Set((r.cities||[]).map(x=>x.id));
   let osm=[], osmQ='';
-  const note=()=>{if(!$('#osmNote'))return; $('#osmNote').textContent=navigator.onLine?'名前を入れて「🌐 検索」で、地図データ（OpenStreetMap）から小さな町や観光地も探せます。':'圏外のため、アプリに入っている大きい都市のリストだけで探しています。'};
+  const note=()=>{if(!$('#osmNote'))return; $('#osmNote').textContent=navigator.onLine?tr('名前を入れて「🌐 検索」で、地図データ（OpenStreetMap）から小さな町や観光地も探せます。','Type a name and press "🌐 Search" to find small towns and sights in the map data (OpenStreetMap).'):tr('圏外のため、アプリに入っている大きい都市のリストだけで探しています。','You are offline, so only the built-in list of large cities is searched.')};
   note();
   const renderOsm=()=>{
     if(!osmQ){$('#ores').innerHTML='';return}
-    $('#ores').innerHTML='<div class="muted" style="margin-top:8px">🌐 地図データの結果</div>'+(osm.length?osm.map((o,i)=>{const on=picked.has(o.id)||(!onBack&&have.has(o.id));return `<button data-osm="${i}" class="${on?'done':''}"><span>${esc(o.ja||o.en)} <small>${esc([o.kind,o.rg].filter(Boolean).join(' · '))}</small></span><span class="add">${on?'✓':'＋'}</span></button>`}).join(''):'<div class="muted" style="padding:10px 0">見つかりませんでした</div>');
+    $('#ores').innerHTML=`<div class="muted" style="margin-top:8px">${tr('🌐 地図データの結果','🌐 Results from map data')}</div>`+(osm.length?osm.map((o,i)=>{const on=picked.has(o.id)||(!onBack&&have.has(o.id));return `<button data-osm="${i}" class="${on?'done':''}"><span>${esc(cityName(o))} <small>${esc([o.kind,o.rg].filter(Boolean).join(' · '))}</small></span><span class="add">${on?'✓':'＋'}</span></button>`}).join(''):`<div class="muted" style="padding:10px 0">${tr('見つかりませんでした','Nothing found')}</div>`);
   };
   $('#cform').onsubmit=async e=>{
     e.preventDefault(); const v=q.value.trim(); if(!v) return;
-    if(!navigator.onLine){note();toast('圏外なので地図データでは探せません');return}
-    $('#osmBtn').disabled=true; osmQ=v; $('#ores').innerHTML='<div class="muted" style="padding:10px 0">🌐 検索中…</div>';
-    try{ osm=await osmSearch(code,v); }catch(err){ osm=[]; $('#ores').innerHTML='<div class="muted" style="padding:10px 0">検索できませんでした（ネットを確認してください）</div>'; $('#osmBtn').disabled=false; return; }
+    if(!navigator.onLine){note();toast(tr('圏外なので地図データでは探せません','You are offline, so map data search is not available'));return}
+    $('#osmBtn').disabled=true; osmQ=v; $('#ores').innerHTML=`<div class="muted" style="padding:10px 0">${tr('🌐 検索中…','🌐 Searching…')}</div>`;
+    try{ osm=await osmSearch(code,v); }catch(err){ osm=[]; $('#ores').innerHTML=`<div class="muted" style="padding:10px 0">${tr('検索できませんでした（ネットを確認してください）','Search failed. Please check your internet connection.')}</div>`; $('#osmBtn').disabled=false; return; }
     $('#osmBtn').disabled=false; if(q.value.trim()===v) renderOsm();
   };
   const render=()=>{
@@ -567,19 +583,19 @@ function openCityPicker(code,{onPick,picked=new Set(),onBack}){
     if(!CITIES){return}
     const d=CITIES[code], list=searchCities(code,v);
     let h='';
-    if(v&&list.length) h+='<div class="muted" style="margin-top:8px">アプリに入っている都市</div>';
+    if(v&&list.length) h+=`<div class="muted" style="margin-top:8px">${tr('アプリに入っている都市','Built-in cities')}</div>`;
     if(!v&&(r.cities||[]).length){
-      h+='<div class="muted" style="margin-top:8px">記録した都市</div>'+r.cities.map(x=>`<button data-own="${x.id}" class="${picked.has(x.id)?'done':''}"><span>${esc(cityName(x))} <small>${esc(x.en!==cityName(x)?x.en:'')}</small></span><span class="add">${picked.has(x.id)?'✓':'＋'}</span></button>`).join('');
-      h+='<div class="muted" style="margin-top:12px">大きい都市</div>';
+      h+=`<div class="muted" style="margin-top:8px">${tr('記録した都市','Your cities')}</div>`+r.cities.map(x=>`<button data-own="${x.id}" class="${picked.has(x.id)?'done':''}"><span>${esc(cityName(x))} <small>${esc(citySub(x))}</small></span><span class="add">${picked.has(x.id)?'✓':'＋'}</span></button>`).join('');
+      h+=`<div class="muted" style="margin-top:12px">${tr('大きい都市','Large cities')}</div>`;
     }
-    h+=list.map(c=>{const id='g'+c[0], on=picked.has(id)||(!onBack&&have.has(id)); return `<button data-gid="${c[0]}" class="${on?'done':''}"><span>${esc(c[2]||c[1])} <small>${c[2]?esc(c[1])+' · ':''}${esc(d.r[c[6]]||'')}${c[7]?' · 首都':''}</small></span><span class="add">${on?'✓':'＋'}</span></button>`}).join('');
-    if(v) h+=`<button data-free="1"><span>「${esc(v)}」をそのまま追加 <small>地図に点は出ません</small></span><span class="add">＋</span></button>`;
-    if(!h) h='<div class="muted" style="padding:12px 0">見つかりません</div>';
+    h+=list.map(c=>{const id='g'+c[0], on=picked.has(id)||(!onBack&&have.has(id)); return `<button data-gid="${c[0]}" class="${on?'done':''}"><span>${esc(L?c[1]:(c[2]||c[1]))} <small>${!L&&c[2]?esc(c[1])+' · ':''}${esc(d.r[c[6]]||'')}${c[7]?tr(' · 首都',' · capital'):''}</small></span><span class="add">${on?'✓':'＋'}</span></button>`}).join('');
+    if(v) h+=`<button data-free="1"><span>${tr(`「${esc(v)}」をそのまま追加`,`Add "${esc(v)}" as typed`)} <small>${tr('地図に点は出ません','no pin on the map')}</small></span><span class="add">＋</span></button>`;
+    if(!h) h=`<div class="muted" style="padding:12px 0">${tr('見つかりません','Nothing found')}</div>`;
     $('#cres').innerHTML=h;
   };
   let tm; q.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(render,120)});
-  loadCities().then(render).catch(()=>{$('#cres').innerHTML=`<div class="muted" style="padding:12px 0">都市リストを読み込めませんでした（一度ネットにつないで開くと保存されます）。下から名前だけで追加できます。</div>`;
-    q.addEventListener('input',()=>{const v=q.value.trim(); $('#cres').innerHTML=v?`<button data-free="1"><span>「${esc(v)}」を追加</span><span class="add">＋</span></button>`:''});});
+  loadCities().then(render).catch(()=>{$('#cres').innerHTML=`<div class="muted" style="padding:12px 0">${tr('都市リストを読み込めませんでした（一度ネットにつないで開くと保存されます）。下から名前だけで追加できます。','Could not load the city list (open the app once online to save it). You can still add a place by name.')}</div>`;
+    q.addEventListener('input',()=>{const v=q.value.trim(); $('#cres').innerHTML=v?`<button data-free="1"><span>${tr(`「${esc(v)}」を追加`,`Add "${esc(v)}"`)}</span><span class="add">＋</span></button>`:''});});
   $('#cres').onclick=e=>{
     const b=e.target.closest('button'); if(!b) return;
     let c;
@@ -591,7 +607,7 @@ function openCityPicker(code,{onPick,picked=new Set(),onBack}){
   $('#ores').onclick=e=>{const b=e.target.closest('button[data-osm]'); if(b) pick(osm[+b.dataset.osm]);};
   const pick=c=>{
     if(!onBack){ closePanel(); onPick(c); return; }
-    onPick(c); toast(`${cityName(c)} を入れました`); q.value=''; osmQ=''; osm=[]; renderOsm(); render(); q.focus();
+    onPick(c); toast(tr(`${cityName(c)} を入れました`,`Added ${cityName(c)}`)); q.value=''; osmQ=''; osm=[]; renderOsm(); render(); q.focus();
   };
   addEventListener('online',note); addEventListener('offline',note);
 }
@@ -599,23 +615,24 @@ function openCityPicker(code,{onPick,picked=new Set(),onBack}){
 /* ---------- 地図データ（OpenStreetMap / Nominatim）で検索 ---------- */
 // 利用ルール：1秒に1回まで・打つたびには検索しない（ボタンを押したときだけ）
 let osmLast=0;
-const OSM_KIND={city:'市',town:'町',village:'村',hamlet:'集落',municipality:'市町村',suburb:'地区',neighbourhood:'地区',quarter:'地区',city_district:'区',island:'島',county:'郡',state:'州・県',province:'州・県',region:'地方'};
+const OSM_KIND=L?{city:'city',town:'town',village:'village',hamlet:'hamlet',municipality:'municipality',suburb:'district',neighbourhood:'neighborhood',quarter:'district',city_district:'district',island:'island',county:'county',state:'state / prefecture',province:'province',region:'region'}:{city:'市',town:'町',village:'村',hamlet:'集落',municipality:'市町村',suburb:'地区',neighbourhood:'地区',quarter:'地区',city_district:'区',island:'島',county:'郡',state:'州・県',province:'州・県',region:'地方'};
 async function osmSearch(code,v){
   const wait=osmLast+1100-Date.now(); if(wait>0) await new Promise(r=>setTimeout(r,wait));
   osmLast=Date.now();
   const u=new URL('https://nominatim.openstreetmap.org/search');
-  u.search=new URLSearchParams({q:v,countrycodes:code.toLowerCase(),format:'jsonv2','accept-language':'ja',limit:'10',namedetails:'1'});
+  u.search=new URLSearchParams({q:v,countrycodes:code.toLowerCase(),format:'jsonv2','accept-language':LANG,limit:'10',namedetails:'1'});
   const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),10000);
   const res=await fetch(u,{signal:ctl.signal}).finally(()=>clearTimeout(to));
   if(!res.ok) throw new Error(res.status);
   const seen=new Set();
   return (await res.json()).map(x=>{
     const nd=x.namedetails||{}, parts=String(x.display_name||'').split(',').map(s=>s.trim());
-    const ja=x.name||parts[0]||'', en=nd['name:en']||nd.name||'';
-    return {id:'o'+String(x.osm_type||'x')[0]+x.osm_id, ja, en:en===ja?'':en, lat:+(+x.lat).toFixed(4), lng:+(+x.lon).toFixed(4),
-      rg:parts.slice(1,-1).filter(p=>p!==ja&&!/^\d[\d-]*$/.test(p)).slice(0,2).join('、'),
-      kind:OSM_KIND[x.addresstype]||(x.category==='tourism'?'観光地':x.category==='aeroway'?'空港':'')};
-  }).filter(o=>o.ja&&isFinite(o.lat)&&!seen.has(o.id)&&seen.add(o.id));
+    const loc=x.name||parts[0]||'';
+    const ja=L?(nd['name:ja']||''):loc, en=L?loc:(nd['name:en']||nd.name||'');
+    return {id:'o'+String(x.osm_type||'x')[0]+x.osm_id, ja, en:(!L&&en===ja)?'':en, lat:+(+x.lat).toFixed(4), lng:+(+x.lon).toFixed(4),
+      rg:parts.slice(1,-1).filter(p=>p!==loc&&!/^\d[\d-]*$/.test(p)).slice(0,2).join(tr('、',', ')),
+      kind:OSM_KIND[x.addresstype]||(x.category==='tourism'?tr('観光地','sight'):x.category==='aeroway'?tr('空港','airport'):'')};
+  }).filter(o=>(o.ja||o.en)&&isFinite(o.lat)&&!seen.has(o.id)&&seen.add(o.id));
 }
 
 function openTrip(code,tripId){
@@ -624,13 +641,13 @@ function openTrip(code,tripId){
   const draft=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),f:'',t:'',cs:[],n:''};
   const draw=()=>{
     const rr=rec(code)||{};
-    openPanel((orig?'旅行を編集':'旅行を追加')+' · '+C[code].ja,`
-      <div class="dates"><div><label class="lb">いつから</label><input type="date" id="tf" value="${draft.f}"></div><div><label class="lb">いつまで</label><input type="date" id="tt" value="${draft.t}"></div></div>
-      <label class="lb">行った都市（タップで選ぶ）</label>
-      <div class="tog" id="tcs">${(rr.cities||[]).map(x=>`<button data-id="${x.id}" class="${draft.cs.includes(x.id)?'on':''}">${esc(cityName(x))}</button>`).join('')}<button data-a="more" style="border-style:dashed">＋ 都市をさがす</button></div>
-      <label class="lb">メモ</label><textarea id="tn" placeholder="誰と行った、何をした など">${esc(draft.n||'')}</textarea>
-      <button class="btn" id="tSave">保存</button>
-      ${orig?'<button class="btn danger" id="tDel">この旅行を消す</button>':''}`);
+    openPanel((orig?tr('旅行を編集','Edit trip'):tr('旅行を追加','Add a trip'))+' · '+C[code].nm,`
+      <div class="dates"><div><label class="lb">${tr('いつから','From')}</label><input type="date" id="tf" value="${draft.f}"></div><div><label class="lb">${tr('いつまで','To')}</label><input type="date" id="tt" value="${draft.t}"></div></div>
+      <label class="lb">${tr('行った都市（タップで選ぶ）','Cities you visited (tap to choose)')}</label>
+      <div class="tog" id="tcs">${(rr.cities||[]).map(x=>`<button data-id="${x.id}" class="${draft.cs.includes(x.id)?'on':''}">${esc(cityName(x))}</button>`).join('')}<button data-a="more" style="border-style:dashed">${tr('＋ 都市をさがす','＋ Find a city')}</button></div>
+      <label class="lb">${tr('メモ','Notes')}</label><textarea id="tn" placeholder="${tr('誰と行った、何をした など','Who you went with, what you did, etc.')}">${esc(draft.n||'')}</textarea>
+      <button class="btn" id="tSave">${tr('保存','Save')}</button>
+      ${orig?`<button class="btn danger" id="tDel">${tr('この旅行を消す','Delete this trip')}</button>`:''}`);
     const sync=()=>{draft.f=$('#tf').value; draft.t=$('#tt').value; draft.n=$('#tn').value;};
     $('#tf').onchange=()=>{sync(); if(!draft.t||draft.t<draft.f){draft.t=draft.f;$('#tt').value=draft.f}};
     $('#tcs').onclick=e=>{
@@ -645,13 +662,13 @@ function openTrip(code,tripId){
     $('#tSave').onclick=()=>{
       sync();
       if(draft.f&&draft.t&&draft.t<draft.f) [draft.f,draft.t]=[draft.t,draft.f];
-      if(!draft.f&&!draft.cs.length&&!draft.n){toast('日付か都市を入れてください');return}
+      if(!draft.f&&!draft.cs.length&&!draft.n){toast(tr('日付か都市を入れてください','Please add a date or a city'));return}
       const r=R(code); r.trips=(r.trips||[]).filter(t=>t.id!==draft.id);
       const t={id:draft.id,f:draft.f,t:draft.t||draft.f,cs:draft.cs}; if(draft.n.trim()) t.n=draft.n.trim();
-      r.trips.push(t); markVisited(code); save(); closePanel(); changed(); toast('保存しました');
+      r.trips.push(t); markVisited(code); save(); closePanel(); changed(); toast(tr('保存しました','Saved'));
     };
     $('#tDel')?.addEventListener('click',async()=>{
-      if(!await ask('この旅行を消しますか？（都市は残ります）','消す')) return;
+      if(!await ask(tr('この旅行を消しますか？（都市は残ります）','Delete this trip? (Your cities will stay.)'),tr('消す','Delete'))) return;
       const r=R(code); r.trips=r.trips.filter(t=>t.id!==draft.id); tidy(code); save(); closePanel(); changed();
     });
   };
@@ -660,7 +677,7 @@ function openTrip(code,tripId){
 
 /* ---------- リスト ---------- */
 let filter='all', showTerr=false, mode='list';
-const ALL=Object.values(C).sort((a,b)=>a.ja.localeCompare(b.ja,'ja'));
+const ALL=Object.values(C).sort((a,b)=>a.nm.localeCompare(b.nm,LANG));
 for(const c of ALL) c.key=norm(c.ja+' '+c.en+' '+c.code);
 function renderList(){
   const q=norm($('#q').value.trim());
@@ -679,24 +696,24 @@ function renderList(){
     const tot=ALL.filter(c=>c.cont===k&&c.isC), done=tot.filter(c=>DONE(stOf(c.code))).length;
     html+=`<div class="group"><h3><span>${CONT[k]}</span><span>${tot.length?done+' / '+tot.length:''}</span></h3>`;
     if(mode==='flags'){
-      html+='<div class="flags">'+its.map(c=>{const s=stOf(c.code);return `<div class="ftile ${s||'off'}" data-c="${c.code}"><div class="f">${c.flag}</div><div>${esc(c.ja)}</div></div>`}).join('')+'</div>';
+      html+='<div class="flags">'+its.map(c=>{const s=stOf(c.code);return `<div class="ftile ${s||'off'}" data-c="${c.code}"><div class="f">${c.flag}</div><div>${esc(c.nm)}</div></div>`}).join('')+'</div>';
     }else{
       html+='<div class="rows">';
       for(const c of its){
         const s=stOf(c.code), r=rec(c.code);
-        const sub=[c.en]; const y=firstYear(r); if(y) sub.push(y);
-        if(r?.trips?.length) sub.push(r.trips.length+'回'); if(r?.cities?.length) sub.push(r.cities.length+'都市');
-        html+=`<div class="row" data-c="${c.code}"><div class="flag">${c.flag}</div><div class="nm"><div>${esc(c.ja)}${c.isC?'':'<span class="terr">地域</span>'}</div><small>${esc(sub.join(' · '))}</small></div><button class="tick ${s}" data-t="${c.code}" aria-label="行ったを切り替え">${s==='w'?'★':s==='t'?'✈':s?'✓':''}</button></div>`;
+        const sub=L?[]:[c.en]; const y=firstYear(r); if(y) sub.push(y);
+        if(r?.trips?.length) sub.push(tr(r.trips.length+'回',pl(r.trips.length,'trip'))); if(r?.cities?.length) sub.push(tr(r.cities.length+'都市',pl(r.cities.length,'city').replace('citys','cities')));
+        html+=`<div class="row" data-c="${c.code}"><div class="flag">${c.flag}</div><div class="nm"><div>${esc(c.nm)}${c.isC?'':`<span class="terr">${tr('地域','territory')}</span>`}</div><small>${esc(sub.join(' · '))}</small></div><button class="tick ${s}" data-t="${c.code}" aria-label="${tr('行ったを切り替え','Toggle visited')}">${s==='w'?'★':s==='t'?'✈':s?'✓':''}</button></div>`;
       }
       html+='</div>';
     }
     html+='</div>';
   }
-  $('#list').innerHTML=html||'<div class="empty">見つかりません</div>';
+  $('#list').innerHTML=html||`<div class="empty">${tr('見つかりません','Nothing found')}</div>`;
 }
 $('#list').addEventListener('click',e=>{
   const t=e.target.closest('[data-t]');
-  if(t){ const code=t.dataset.t, s=stOf(code); setStatus(code, DONE(s)?'':'v'); toast(DONE(s)?`${C[code].ja} を外しました`:`${C[code].ja} を「行った」にしました`); return; }
+  if(t){ const code=t.dataset.t, s=stOf(code); setStatus(code, DONE(s)?'':'v'); toast(DONE(s)?tr(`${C[code].nm} を外しました`,`Removed ${C[code].nm}`):tr(`${C[code].nm} を「行った」にしました`,`Marked ${C[code].nm} as visited`)); return; }
   const r=e.target.closest('[data-c]'); if(r) openSheet(r.dataset.c);
 });
 let qT; $('#q').addEventListener('input',()=>{clearTimeout(qT);qT=setTimeout(renderList,100)});
@@ -718,11 +735,11 @@ function renderStats(){
   for(const r of Object.values(state.c)){nCities+=(r.cities||[]).length; for(const t of r.trips||[]){nTrips++; nDays+=days(t)}}
   const conts=CONT_ORDER.filter(k=>k!=='AN');
   const contsDone=conts.filter(k=>countries.some(c=>c.cont===k&&done(c))).length;
-  let h=`<div class="card"><div class="big"><b>${n}</b><span>/ 195 か国 · 世界の ${(n/195*100).toFixed(1)}%</span></div>
+  let h=`<div class="card"><div class="big"><b>${n}</b><span>${tr(`/ 195 か国 · 世界の ${(n/195*100).toFixed(1)}%`,`/ 195 countries · ${(n/195*100).toFixed(1)}% of the world`)}</span></div>
     <div class="bar"><i style="width:${n/195*100}%"></i></div>
-    <div class="minis"><div><b>${contsDone}</b><small>大陸 / 6</small></div><div><b>${nCities}</b><small>都市</small></div><div><b>${nTrips}</b><small>旅行</small></div>
-    <div><b>${terr}</b><small>地域</small></div><div><b>${cnt('l')}</b><small>住んだ</small></div><div><b>${cnt('w')}</b><small>行きたい</small></div></div>
-    ${nDays?`<p>旅行日数の合計：${nDays}日 · 乗り継ぎ：${cnt('t')}</p>`:''}</div><div class="card"><h2>大陸ごと</h2>`;
+    <div class="minis"><div><b>${contsDone}</b><small>${tr('大陸 / 6','continents / 6')}</small></div><div><b>${nCities}</b><small>${tr('都市','cities')}</small></div><div><b>${nTrips}</b><small>${tr('旅行','trips')}</small></div>
+    <div><b>${terr}</b><small>${tr('地域','territories')}</small></div><div><b>${cnt('l')}</b><small>${tr('住んだ','lived')}</small></div><div><b>${cnt('w')}</b><small>${tr('行きたい','want to go')}</small></div></div>
+    ${nDays?`<p>${tr(`旅行日数の合計：${nDays}日 · 乗り継ぎ：${cnt('t')}`,`Total days of travel: ${nDays} · Transit: ${cnt('t')}`)}</p>`:''}</div><div class="card"><h2>${tr('大陸ごと','By continent')}</h2>`;
   for(const k of conts){
     const t=countries.filter(c=>c.cont===k), d=t.filter(done).length;
     h+=`<div class="cont"><div class="top"><b>${CONT[k]}</b><span>${d} / ${t.length}（${Math.round(d/t.length*100)}%）</span></div><div class="bar"><i style="width:${d/t.length*100}%"></i></div></div>`;
@@ -736,12 +753,12 @@ function renderStats(){
   }
   items.sort((a,b)=>b.d.localeCompare(a.d));
   if(items.length){
-    h+='<div class="card ylist"><h2>年ごと</h2>'; let cur=null;
+    h+=`<div class="card ylist"><h2>${tr('年ごと','By year')}</h2>`; let cur=null;
     for(const it of items){
       if(it.y!==cur){h+=`<div class="yh">${esc(it.y)}</div>`;cur=it.y}
       const c=C[it.code], r=rec(it.code);
-      const sub=it.t?[fmtRange(it.t)+' · '+days(it.t)+'日',...it.t.cs.map(id=>cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))].join('　'):'';
-      h+=`<div class="row" data-c="${it.code}"><div class="flag">${c.flag}</div><div class="nm"><div>${esc(c.ja)}</div>${sub?`<small>${esc(sub)}</small>`:''}</div></div>`;
+      const sub=it.t?[fmtRange(it.t)+' · '+tr(days(it.t)+'日',pl(days(it.t),'day')),...it.t.cs.map(id=>cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))].join('　'):'';
+      h+=`<div class="row" data-c="${it.code}"><div class="flag">${c.flag}</div><div class="nm"><div>${esc(c.nm)}</div>${sub?`<small>${esc(sub)}</small>`:''}</div></div>`;
     }
     h+='</div>';
   }
@@ -750,7 +767,7 @@ function renderStats(){
   for(const [code,r] of Object.entries(state.c)) for(const x of r.cities||[]) top.push({code,x,n:cityCount(r,x.id)});
   top.sort((a,b)=>b.n-a.n);
   if(top.length){
-    h+='<div class="card ylist"><h2>よく行く都市</h2>'+top.slice(0,10).map(o=>`<div class="row" data-c="${o.code}"><div class="flag">${C[o.code].flag}</div><div class="nm"><div>${esc(cityName(o.x))}</div><small>${esc(C[o.code].ja)}</small></div><span class="cnt">${o.n}回</span></div>`).join('')+'</div>';
+    h+=`<div class="card ylist"><h2>${tr('よく行く都市','Most visited cities')}</h2>`+top.slice(0,10).map(o=>`<div class="row" data-c="${o.code}"><div class="flag">${C[o.code].flag}</div><div class="nm"><div>${esc(cityName(o.x))}</div><small>${esc(C[o.code].nm)}</small></div><span class="cnt">${tr(o.n+'回',o.n+'×')}</span></div>`).join('')+'</div>';
   }
   $('#stats').innerHTML=h;
 }
@@ -809,8 +826,8 @@ function counts(s=state){
 }
 function renderBackup(){
   const n=counts();
-  $('#bkInfo').innerHTML=`<div><b>${n.places}</b><small>国・地域</small></div><div><b>${n.trips}</b><small>旅行</small></div><div><b>${n.cities}</b><small>都市</small></div>`;
-  $('#bkLast').textContent='ファイルには、国の状態・旅行の日付・回った都市・メモ・色がすべて入ります。'+(state.lastBackup?`最後に保存：${new Date(state.lastBackup).toLocaleDateString('ja-JP')}`:'まだ保存していません。');
+  $('#bkInfo').innerHTML=`<div><b>${n.places}</b><small>${tr('国・地域','places')}</small></div><div><b>${n.trips}</b><small>${tr('旅行','trips')}</small></div><div><b>${n.cities}</b><small>${tr('都市','cities')}</small></div>`;
+  $('#bkLast').textContent=tr('ファイルには、国の状態・旅行の日付・回った都市・メモ・色がすべて入ります。','The file includes everything: country status, trip dates, cities, notes and colors. ')+(state.lastBackup?tr(`最後に保存：${new Date(state.lastBackup).toLocaleDateString('ja-JP')}`,`Last saved: ${new Date(state.lastBackup).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}`):tr('まだ保存していません。','Not saved yet.'));
 }
 $('#importBtn').onclick=()=>$('#importFile').click();
 $('#importFile').onchange=async e=>{
@@ -819,25 +836,32 @@ $('#importFile').onchange=async e=>{
     const s=JSON.parse(await f.text());
     if(!s||typeof s.c!=='object') throw 0;
     const ns=clean(s), n=counts(ns);
-    if(!await ask(`このファイルの記録（${n.places}か国・地域、旅行${n.trips}回、都市${n.cities}）で、今の記録を置き換えます。よろしいですか？`,'置き換える')) return;
-    ns.lastBackup=state.lastBackup; state=ns; applyColors(); save(); changed(); renderColors(); renderBackup(); toast(`読み込みました（旅行${n.trips}回・都市${n.cities}）`);
-  }catch(err){toast('読み込めませんでした（形式が違うファイルです）')}
+    if(!await ask(tr(`このファイルの記録（${n.places}か国・地域、旅行${n.trips}回、都市${n.cities}）で、今の記録を置き換えます。よろしいですか？`,`Replace your current records with this file (${n.places} places, ${n.trips} trips, ${n.cities} cities)?`),tr('置き換える','Replace'))) return;
+    ns.lastBackup=state.lastBackup; state=ns; applyColors(); save(); changed(); renderColors(); renderBackup(); toast(tr(`読み込みました（旅行${n.trips}回・都市${n.cities}）`,`Restored (${n.trips} trips, ${n.cities} cities)`));
+  }catch(err){toast(tr('読み込めませんでした（形式が違うファイルです）','Could not read this file (wrong format)'))}
 };
 $('#resetBtn').onclick=async()=>{
   const n=Object.keys(state.c).length;
-  if(!n){toast('記録はまだありません');return}
-  if(!await ask(`${n}件の記録をすべて消します。元に戻せません。先にバックアップを保存しましたか？`,'消す')) return;
-  state={v:2,c:{},colors:state.colors,updated:Date.now()}; save(); changed(); toast('消しました');
+  if(!n){toast(tr('記録はまだありません','No records yet'));return}
+  if(!await ask(tr(`${n}件の記録をすべて消します。元に戻せません。先にバックアップを保存しましたか？`,`This deletes all ${n} records and cannot be undone. Did you save a backup first?`),tr('消す','Delete'))) return;
+  state={v:2,c:{},colors:state.colors,updated:Date.now()}; save(); changed(); toast(tr('消しました','Deleted'));
 };
 
 /* ---------- 起動 ---------- */
 (async()=>{
-  $('#ver').textContent='バージョン '+APP_VERSION;
+  $('#ver').textContent=tr('バージョン ','Version ')+APP_VERSION;
+  if(L){
+    document.documentElement.lang='en'; document.title="Places I've Been";
+    document.querySelectorAll('[data-en]').forEach(e=>e.textContent=e.dataset.en);
+    document.querySelectorAll('[data-en-ph]').forEach(e=>e.placeholder=e.dataset.enPh);
+    $('#updbar').textContent='A new version is available · Tap to update';
+  }
+  document.querySelectorAll('#langSel button').forEach(b=>{b.classList.toggle('on',b.dataset.lang===LANG); b.onclick=()=>{if(b.dataset.lang===LANG)return; try{localStorage.setItem('visited.lang',b.dataset.lang)}catch(e){} flush(); location.reload();}});
   await load();
   applyColors(); renderLegend();
   $('#hdCount').textContent=ALL.filter(c=>c.isC&&DONE(stOf(c.code))).length;
   try{ const world=await (await fetch('world.json')).json(); initMap(world); }
-  catch(e){ $('#mapView').insertAdjacentHTML('beforeend','<div class="empty" style="position:absolute;inset:0;padding-top:30%">地図を読み込めませんでした。<br>一度ネットにつないで開いてください。</div>'); }
+  catch(e){ $('#mapView').insertAdjacentHTML('beforeend',`<div class="empty" style="position:absolute;inset:0;padding-top:30%">${tr('地図を読み込めませんでした。<br>一度ネットにつないで開いてください。','Could not load the map.<br>Please open the app once with internet.')}</div>`); }
   try{ navigator.storage?.persist?.() }catch(e){}
 })();
 
