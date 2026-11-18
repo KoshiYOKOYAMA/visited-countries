@@ -203,6 +203,8 @@ textarea{min-height:64px;resize:vertical}
     <div class="card">
       <h2>バックアップ</h2>
       <p>記録はこの端末の中だけに保存されます（オフラインでも使えます）。機種変更やブラウザのデータ削除に備えて、ときどきファイルに保存してください。iPhoneは共有シート →「"ファイル"に保存」→ iCloud Drive がおすすめです。</p>
+      <div class="minis" id="bkInfo" style="margin-bottom:6px"></div>
+      <p id="bkLast"></p>
       <button class="btn" id="exportBtn">ファイルに保存</button>
       <button class="btn ghost" id="importBtn">ファイルから戻す</button>
       <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
@@ -240,7 +242,7 @@ textarea{min-height:64px;resize:vertical}
 <script src="vendor/topojson-client.min.js"></script>
 <script src="countries.js"></script>
 <script>
-const APP_VERSION = 'v2';
+const APP_VERSION = 'v3';
 const CONT = {AS:'アジア',EU:'ヨーロッパ',AF:'アフリカ',NA:'北米・中米',SA:'南米',OC:'オセアニア',AN:'南極'};
 const CONT_ORDER = ['AS','EU','AF','NA','SA','OC','AN'];
 const ST = {v:'行った', l:'住んだ', t:'乗り継ぎ', w:'行きたい'};
@@ -287,6 +289,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)flush()});
 // 読み込んだデータを安全な形にそろえる（バックアップ読み込みにも使う）
 function clean(s){
   const out={v:2,c:{},colors:{},updated:s.updated||Date.now()};
+  if(+s.lastBackup) out.lastBackup=+s.lastBackup;
   const str=(x,n=500)=>x==null?'':String(x).slice(0,n);
   const date=x=>/^\d{4}-\d{2}-\d{2}$/.test(x)?x:'';
   for(const [k,r] of Object.entries(s.c||{})){
@@ -384,7 +387,7 @@ function initMap(world){
   svg=d3.select('#map');
   g=svg.append('g');
   features=topojson.feature(world,world.objects.countries).features.filter(f=>f.id&&C[f.id]);
-  proj=d3.geoNaturalEarth1();
+  proj=d3.geoMercator();
   path=d3.geoPath(proj);
   g.append('path').attr('class','sphere').attr('fill','var(--sea)');
   g.selectAll('path.c').data(features).join('path').attr('class','c').on('click',(e,d)=>openSheet(d.id));
@@ -412,9 +415,12 @@ function layout(){
   if(layout.w===w&&layout.h===h) return; layout.w=w; layout.h=h;
   svg.attr('viewBox',`0 0 ${w} ${h}`);
   // 縦長の画面では地図を高さいっぱいにして、横にスワイプできるようにする（南極は除いて合わせる）
-  const mapW=Math.max(w,h*1.25);
-  proj.fitExtent([[8,8],[mapW-8,h-8]],{type:'FeatureCollection',features:features.filter(f=>f.id!=='AQ')});
-  const [[sx0,sy0],[sx1,sy1]]=path.bounds({type:'Sphere'});
+  // メルカトル図。南極は大きく伸びるので合わせる範囲から外し、少しだけ見える高さまでにする
+  const mapW=Math.max(w,h*1.4);
+  const noAQ={type:'FeatureCollection',features:features.filter(f=>f.id!=='AQ')};
+  proj.fitExtent([[8,8],[mapW-8,h-8]],noAQ);
+  const [[bx0,by0],[bx1,by1]]=path.bounds(noAQ);
+  const sx0=bx0-8, sx1=bx1+8, sy0=by0-8, sy1=Math.max(by1+8,proj([0,-66])[1]);
   g.select('path.sphere').attr('d',path({type:'Sphere'}));
   g.selectAll('path.c').attr('d',path);
   g.selectAll('circle.dot').attr('cx',d=>proj([d.lng,d.lat])[0]).attr('cy',d=>proj([d.lng,d.lat])[1]);
@@ -718,7 +724,7 @@ function show(v){
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   if(v==='mapView'&&svg) layout();
-  if(v==='setView') renderColors();
+  if(v==='setView'){ renderColors(); renderBackup(); }
   renderVisible();
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
@@ -732,23 +738,36 @@ function ask(msg,yes='OK'){return new Promise(res=>{$('#modalMsg').textContent=m
 /* ---------- バックアップ ---------- */
 $('#exportBtn').onclick=async()=>{
   const d=new Date(), name=`visited-backup-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.json`;
-  const blob=new Blob([JSON.stringify({app:'visited-countries',...state})],{type:'application/json'});
+  // 国の状態・旅行（日付・都市・メモ）・都市・メモ・色をすべて入れる
+  const {lastBackup,...data}=state;
+  const blob=new Blob([JSON.stringify({app:'visited-countries',exported:new Date().toISOString(),...data})],{type:'application/json'});
   const file=new File([blob],name,{type:'application/json'});
+  const done=()=>{state.lastBackup=Date.now(); save(); renderBackup();};
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:name});return}catch(e){if(e.name==='AbortError')return}
+    try{await navigator.share({files:[file],title:name});done();return}catch(e){if(e.name==='AbortError')return}
   }
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000); done();
 };
+function counts(s=state){
+  let places=0,trips=0,cities=0;
+  for(const r of Object.values(s.c)){places++; trips+=(r.trips||[]).length; cities+=(r.cities||[]).length}
+  return {places,trips,cities};
+}
+function renderBackup(){
+  const n=counts();
+  $('#bkInfo').innerHTML=`<div><b>${n.places}</b><small>国・地域</small></div><div><b>${n.trips}</b><small>旅行</small></div><div><b>${n.cities}</b><small>都市</small></div>`;
+  $('#bkLast').textContent='ファイルには、国の状態・旅行の日付・回った都市・メモ・色がすべて入ります。'+(state.lastBackup?`最後に保存：${new Date(state.lastBackup).toLocaleDateString('ja-JP')}`:'まだ保存していません。');
+}
 $('#importBtn').onclick=()=>$('#importFile').click();
 $('#importFile').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   try{
     const s=JSON.parse(await f.text());
     if(!s||typeof s.c!=='object') throw 0;
-    const ns=clean(s), n=Object.keys(ns.c).length;
-    if(!await ask(`このファイルの記録（${n}か国・地域）で、今の記録を置き換えます。よろしいですか？`,'置き換える')) return;
-    state=ns; applyColors(); save(); changed(); renderColors(); toast(`${n}件を読み込みました`);
+    const ns=clean(s), n=counts(ns);
+    if(!await ask(`このファイルの記録（${n.places}か国・地域、旅行${n.trips}回、都市${n.cities}）で、今の記録を置き換えます。よろしいですか？`,'置き換える')) return;
+    ns.lastBackup=state.lastBackup; state=ns; applyColors(); save(); changed(); renderColors(); renderBackup(); toast(`読み込みました（旅行${n.trips}回・都市${n.cities}）`);
   }catch(err){toast('読み込めませんでした（形式が違うファイルです）')}
 };
 $('#resetBtn').onclick=async()=>{
