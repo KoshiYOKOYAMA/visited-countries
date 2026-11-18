@@ -151,6 +151,10 @@ textarea{min-height:64px;resize:vertical}
 .panel .ph h2{margin:0;font-size:17px}
 .panel .pb{flex:1;overflow-y:auto;padding:12px 16px calc(24px + env(safe-area-inset-bottom));overscroll-behavior:contain}
 .res{margin-top:8px}
+.osmbar{display:flex;gap:8px}
+.osmbar input{flex:1;min-width:0}
+.osmbar .btn{flex:none}
+.osmbar .btn:disabled{opacity:.5}
 .res button{display:flex;width:100%;text-align:left;align-items:center;gap:8px;padding:11px 4px;border:none;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:15px}
 .res button small{color:var(--sub);font-size:12px}
 .res button .add{margin-left:auto;color:var(--accent);font-size:20px}
@@ -216,7 +220,7 @@ textarea{min-height:64px;resize:vertical}
     <div class="card">
       <h2>数え方</h2>
       <p>「か国」は国連加盟国193＋バチカン・パレスチナの195。「行った」と「住んだ」を数えます（乗り継ぎ・行きたいは数えません）。台湾・香港・グリーンランドなどは「地域」として別に数えます。</p>
-      <p>都市の回数は、その都市を入れた旅行の数です。都市のデータは GeoNames（人口1.5万人以上、CC BY 4.0）。リストにない町は名前だけで追加できます。「地図」ボタンは Google マップを開きます（ネットが必要）。</p>
+      <p>都市の回数は、その都市を入れた旅行の数です。都市は、アプリに入っている大きい都市のリスト（GeoNames、人口1.5万人以上、CC BY 4.0）と、ネットがあるときの「🌐 検索」（OpenStreetMap の地図データ、© OpenStreetMap contributors）で探せます。「🌐 検索」を押したときだけ、入力した名前が OpenStreetMap に送られます。見つからない町は名前だけで追加できます。「地図」ボタンは Google マップを開きます（ネットが必要）。</p>
     </div>
     <div class="card">
       <h2>リセット</h2>
@@ -242,7 +246,7 @@ textarea{min-height:64px;resize:vertical}
 <script src="vendor/topojson-client.min.js"></script>
 <script src="countries.js"></script>
 <script>
-const APP_VERSION = 'v3';
+const APP_VERSION = 'v4';
 const CONT = {AS:'アジア',EU:'ヨーロッパ',AF:'アフリカ',NA:'北米・中米',SA:'南米',OC:'オセアニア',AN:'南極'};
 const CONT_ORDER = ['AS','EU','AF','NA','SA','OC','AN'];
 const ST = {v:'行った', l:'住んだ', t:'乗り継ぎ', w:'行きたい'};
@@ -516,7 +520,11 @@ $('#sheetbg').onclick=closeSheet;
 // 都市を国に追加（同じ都市は1つにまとめる）。都市のidを返す
 function addCity(code,c){
   const r=R(code); r.cities=r.cities||[];
-  let ex=r.cities.find(x=>x.id===c.id||(!c.gid&&norm(cityName(x))===norm(cityName(c))));
+  // 同じ都市を別の検索（内蔵リスト／地図データ）で選んでも1つにまとめる：同じ名前で30km以内、または位置のない同名
+  const near=(a,b)=>a.lat==null||b.lat==null||Math.hypot(a.lat-b.lat,(a.lng-b.lng)*Math.cos(a.lat*Math.PI/180))<0.27;
+  const same=(a,b)=>[a.ja,a.en].filter(Boolean).some(n=>[b.ja,b.en].filter(Boolean).some(m=>norm(n)===norm(m)));
+  let ex=r.cities.find(x=>x.id===c.id)||r.cities.find(x=>same(x,c)&&near(x,c));
+  if(ex&&ex.lat==null&&c.lat!=null){ex.lat=c.lat;ex.lng=c.lng;if(!ex.ja&&c.ja)ex.ja=c.ja}
   if(!ex){ ex={id:c.id,en:c.en,ja:c.ja,...(c.lat!=null?{lat:c.lat,lng:c.lng}:{}),...(c.rg?{rg:c.rg}:{})}; r.cities.push(ex); }
   markVisited(code); save(); changed({noSheet:true});
   return ex.id;
@@ -532,16 +540,34 @@ function closePanel(){$('#panel').classList.remove('on'); $('#panel').innerHTML=
 
 function openCityPicker(code,{onPick,picked=new Set(),onBack}){
   openPanel(C[code].ja+'の都市を追加',`
-    <input id="cq" type="search" placeholder="都市名（日本語・英語）" autocomplete="off">
+    <form id="cform" class="osmbar"><input id="cq" type="search" placeholder="都市・町・場所（日本語・英語）" autocomplete="off" enterkeyhint="search"><button type="submit" class="btn small" id="osmBtn">🌐 検索</button></form>
+    <div class="muted" id="osmNote" style="margin-top:6px"></div>
+    <div class="res" id="ores"></div>
     <div class="res" id="cres"><div class="muted" style="padding:12px 0">読み込み中…</div></div>`,onBack);
   const q=$('#cq'); q.focus();
   const r=rec(code)||{};
   const have=new Set((r.cities||[]).map(x=>x.id));
+  let osm=[], osmQ='';
+  const note=()=>{if(!$('#osmNote'))return; $('#osmNote').textContent=navigator.onLine?'名前を入れて「🌐 検索」で、地図データ（OpenStreetMap）から小さな町や観光地も探せます。':'圏外のため、アプリに入っている大きい都市のリストだけで探しています。'};
+  note();
+  const renderOsm=()=>{
+    if(!osmQ){$('#ores').innerHTML='';return}
+    $('#ores').innerHTML='<div class="muted" style="margin-top:8px">🌐 地図データの結果</div>'+(osm.length?osm.map((o,i)=>{const on=picked.has(o.id)||(!onBack&&have.has(o.id));return `<button data-osm="${i}" class="${on?'done':''}"><span>${esc(o.ja||o.en)} <small>${esc([o.kind,o.rg].filter(Boolean).join(' · '))}</small></span><span class="add">${on?'✓':'＋'}</span></button>`}).join(''):'<div class="muted" style="padding:10px 0">見つかりませんでした</div>');
+  };
+  $('#cform').onsubmit=async e=>{
+    e.preventDefault(); const v=q.value.trim(); if(!v) return;
+    if(!navigator.onLine){note();toast('圏外なので地図データでは探せません');return}
+    $('#osmBtn').disabled=true; osmQ=v; $('#ores').innerHTML='<div class="muted" style="padding:10px 0">🌐 検索中…</div>';
+    try{ osm=await osmSearch(code,v); }catch(err){ osm=[]; $('#ores').innerHTML='<div class="muted" style="padding:10px 0">検索できませんでした（ネットを確認してください）</div>'; $('#osmBtn').disabled=false; return; }
+    $('#osmBtn').disabled=false; if(q.value.trim()===v) renderOsm();
+  };
   const render=()=>{
     const v=q.value.trim();
+    if(v!==osmQ&&osmQ){osmQ='';osm=[];renderOsm()}
     if(!CITIES){return}
     const d=CITIES[code], list=searchCities(code,v);
     let h='';
+    if(v&&list.length) h+='<div class="muted" style="margin-top:8px">アプリに入っている都市</div>';
     if(!v&&(r.cities||[]).length){
       h+='<div class="muted" style="margin-top:8px">記録した都市</div>'+r.cities.map(x=>`<button data-own="${x.id}" class="${picked.has(x.id)?'done':''}"><span>${esc(cityName(x))} <small>${esc(x.en!==cityName(x)?x.en:'')}</small></span><span class="add">${picked.has(x.id)?'✓':'＋'}</span></button>`).join('');
       h+='<div class="muted" style="margin-top:12px">大きい都市</div>';
@@ -560,9 +586,36 @@ function openCityPicker(code,{onPick,picked=new Set(),onBack}){
     if(b.dataset.gid){const g=CITIES[code].c.find(x=>x[0]==b.dataset.gid); c={id:'g'+g[0],gid:g[0],en:g[1],ja:g[2],lat:g[3],lng:g[4],rg:CITIES[code].r[g[6]]||''};}
     else if(b.dataset.own){c=r.cities.find(x=>x.id===b.dataset.own);}
     else {const v=q.value.trim(); c={id:'u'+uid(),en:v,ja:''};}
-    if(!onBack){ closePanel(); onPick(c); return; }
-    onPick(c); toast(`${cityName(c)} を入れました`); q.value=''; render(); q.focus();
+    pick(c);
   };
+  $('#ores').onclick=e=>{const b=e.target.closest('button[data-osm]'); if(b) pick(osm[+b.dataset.osm]);};
+  const pick=c=>{
+    if(!onBack){ closePanel(); onPick(c); return; }
+    onPick(c); toast(`${cityName(c)} を入れました`); q.value=''; osmQ=''; osm=[]; renderOsm(); render(); q.focus();
+  };
+  addEventListener('online',note); addEventListener('offline',note);
+}
+
+/* ---------- 地図データ（OpenStreetMap / Nominatim）で検索 ---------- */
+// 利用ルール：1秒に1回まで・打つたびには検索しない（ボタンを押したときだけ）
+let osmLast=0;
+const OSM_KIND={city:'市',town:'町',village:'村',hamlet:'集落',municipality:'市町村',suburb:'地区',neighbourhood:'地区',quarter:'地区',city_district:'区',island:'島',county:'郡',state:'州・県',province:'州・県',region:'地方'};
+async function osmSearch(code,v){
+  const wait=osmLast+1100-Date.now(); if(wait>0) await new Promise(r=>setTimeout(r,wait));
+  osmLast=Date.now();
+  const u=new URL('https://nominatim.openstreetmap.org/search');
+  u.search=new URLSearchParams({q:v,countrycodes:code.toLowerCase(),format:'jsonv2','accept-language':'ja',limit:'10',namedetails:'1'});
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),10000);
+  const res=await fetch(u,{signal:ctl.signal}).finally(()=>clearTimeout(to));
+  if(!res.ok) throw new Error(res.status);
+  const seen=new Set();
+  return (await res.json()).map(x=>{
+    const nd=x.namedetails||{}, parts=String(x.display_name||'').split(',').map(s=>s.trim());
+    const ja=x.name||parts[0]||'', en=nd['name:en']||nd.name||'';
+    return {id:'o'+String(x.osm_type||'x')[0]+x.osm_id, ja, en:en===ja?'':en, lat:+(+x.lat).toFixed(4), lng:+(+x.lon).toFixed(4),
+      rg:parts.slice(1,-1).filter(p=>p!==ja&&!/^\d[\d-]*$/.test(p)).slice(0,2).join('、'),
+      kind:OSM_KIND[x.addresstype]||(x.category==='tourism'?'観光地':x.category==='aeroway'?'空港':'')};
+  }).filter(o=>o.ja&&isFinite(o.lat)&&!seen.has(o.id)&&seen.add(o.id));
 }
 
 function openTrip(code,tripId){
