@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>訪れた国</title>
+<meta name="theme-color" content="#1f6f68">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="訪れた国">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f5f3ee; --panel:#ffffff; --ink:#1d2327; --sub:#6b7378; --line:#e3e0d8;
+  --sea:#dfe9ef; --land:#d6d3cb; --border:#f5f3ee;
+  --v:#2a9d8f; --l:#1d5c8a; --t:#8e7cc3; --w:#e9a23b; --accent:#1f6f68; --sel:#e76f51; --pin:#c0392b;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#14181b; --panel:#1d2226; --ink:#e8ecee; --sub:#98a2a8; --line:#2c3338;
+  --sea:#182329; --land:#3a4146; --border:#14181b;
+  --v:#3cb6a6; --l:#5a9fd6; --t:#a895e0; --w:#f0b04f; --accent:#3cb6a6; --sel:#ff8a6b; --pin:#ff6b5b;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
+body{display:flex;flex-direction:column;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+header{padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px}
+header h1{font-size:17px;margin:0;font-weight:700}
+header .count{margin-left:auto;font-size:14px;color:var(--sub)}
+header .count b{font-size:22px;color:var(--accent)}
+main{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch}
+.view.on{display:block}
+#mapView{overflow:hidden;background:var(--sea)}
+#map{width:100%;height:100%;display:block;touch-action:none}
+#map path.c{fill:var(--land);stroke:var(--border);stroke-width:.5px;vector-effect:non-scaling-stroke;cursor:pointer}
+#map path.c.v{fill:var(--v)} #map path.c.l{fill:var(--l)} #map path.c.w{fill:var(--w)} #map path.c.t{fill:var(--t)}
+#map path.c.sel{stroke:var(--sel);stroke-width:2px}
+#map circle.dot{fill:var(--land);stroke:var(--sub);opacity:.75;vector-effect:non-scaling-stroke;stroke-width:.8px;cursor:pointer}
+#map circle.dot.v,#map circle.dot.l,#map circle.dot.w,#map circle.dot.t{opacity:1;stroke:none}
+#map circle.dot.v{fill:var(--v)} #map circle.dot.l{fill:var(--l)} #map circle.dot.w{fill:var(--w)} #map circle.dot.t{fill:var(--t)}
+#map circle.dot.sel{stroke:var(--sel);stroke-width:2px}
+#map circle.pin{fill:var(--pin);stroke:#fff;stroke-width:1px;vector-effect:non-scaling-stroke;cursor:pointer}
+.legend{position:absolute;left:12px;bottom:12px;background:var(--panel);border-radius:10px;padding:6px 10px;font-size:12px;display:flex;flex-wrap:wrap;gap:4px 10px;max-width:calc(100% - 80px);box-shadow:0 1px 4px #0002}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.legend i.p{border-radius:50%;background:var(--pin)}
+.mapbtns{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px}
+.mapbtns button{width:40px;height:40px;border-radius:10px;border:none;background:var(--panel);color:var(--ink);font-size:20px;box-shadow:0 1px 4px #0002}
+
+nav{display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:none;background:none;padding:8px 0 6px;color:var(--sub);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button span{font-size:20px;line-height:1}
+nav button.on{color:var(--accent);font-weight:700}
+
+.wrap{padding:12px 16px 24px;max-width:720px;margin:0 auto}
+.search{position:sticky;top:0;background:var(--bg);padding:12px 16px 8px;z-index:2;max-width:720px;margin:0 auto}
+.search input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:16px}
+.chips{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+.chips button{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:5px 12px;font-size:13px;white-space:nowrap}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chips .sep{border-left:1px solid var(--line);margin:0 2px}
+.group h3{font-size:14px;margin:16px 0 6px;color:var(--sub);display:flex;justify-content:space-between}
+.rows{background:var(--panel);border-radius:10px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;content-visibility:auto;contain-intrinsic-size:auto 58px}
+.row:last-child{border-bottom:none}
+.row .flag{font-size:24px;width:30px;text-align:center}
+.row .nm{flex:1;min-width:0}
+.row .nm div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm small{color:var(--sub);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.terr{font-size:10px;color:var(--sub);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px}
+.tick{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:none;color:#fff;font-size:15px;flex:none;padding:0}
+.tick.v{background:var(--v);border-color:var(--v)} .tick.l{background:var(--l);border-color:var(--l)} .tick.w{background:var(--w);border-color:var(--w)} .tick.t{background:var(--t);border-color:var(--t)}
+.empty{color:var(--sub);text-align:center;padding:40px 0}
+.flags{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.ftile{background:var(--panel);border-radius:10px;padding:8px 4px 6px;text-align:center;cursor:pointer;border-bottom:4px solid transparent;content-visibility:auto;contain-intrinsic-size:auto 84px}
+.ftile .f{font-size:38px;line-height:1.1}
+.ftile div{font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ftile.v{border-color:var(--v)} .ftile.l{border-color:var(--l)} .ftile.w{border-color:var(--w)} .ftile.t{border-color:var(--t)}
+.ftile.off{opacity:.35;filter:grayscale(1)}
+
+.card{background:var(--panel);border-radius:14px;padding:16px;margin-bottom:12px}
+.big{display:flex;align-items:baseline;gap:8px}
+.big b{font-size:44px;color:var(--accent);line-height:1}
+.big span{color:var(--sub)}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--v);border-radius:5px}
+.cont{margin-top:14px}
+.cont .top{display:flex;justify-content:space-between;font-size:14px}
+.cont .top span{color:var(--sub)}
+.minis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;text-align:center}
+.minis div{background:var(--bg);border-radius:10px;padding:8px 4px}
+.minis b{display:block;font-size:22px}
+.minis small{color:var(--sub);font-size:12px}
+.card h2{font-size:16px;margin:0 0 8px}
+.card p{color:var(--sub);font-size:13px;line-height:1.6;margin:6px 0}
+.btn{display:block;width:100%;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:600;margin-top:8px;text-align:center}
+.btn.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:none;color:var(--sel);border:1px solid var(--sel)}
+.btn.small{display:inline-block;width:auto;padding:7px 12px;font-size:13px;margin:0}
+.ylist .yh{font-weight:700;margin:14px 0 6px}
+.ylist .row{border-radius:10px;margin-bottom:6px;border:none;background:var(--bg)}
+.colrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.colrow:last-of-type{border-bottom:none}
+.colrow span{flex:1}
+.colrow input[type=color]{width:44px;height:32px;border:none;background:none;padding:0}
+.pal{display:flex;gap:4px}
+.pal button{width:22px;height:22px;border-radius:50%;border:1px solid #0002;padding:0}
+
+.sheetbg{position:fixed;inset:0;background:#0005;display:none;z-index:10}
+.sheetbg.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));z-index:11;transform:translateY(105%);transition:transform .22s ease;max-width:720px;margin:0 auto;max-height:88vh;overflow-y:auto;overscroll-behavior:contain}
+.sheet.on{transform:none}
+.hd{display:flex;align-items:center;gap:12px}
+.hd .flag{font-size:40px}
+.hd h2{margin:0;font-size:20px}
+.hd small{color:var(--sub)}
+.x{margin-left:auto;border:none;background:var(--bg);color:var(--ink);width:34px;height:34px;border-radius:50%;font-size:18px;flex:none}
+.seg{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:16px 0 6px}
+.seg button{padding:11px 0;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:13px}
+.seg button.on{color:#fff}
+.seg button.on.v{background:var(--v);border-color:var(--v)} .seg button.on.l{background:var(--l);border-color:var(--l)}
+.seg button.on.w{background:var(--w);border-color:var(--w)} .seg button.on.t{background:var(--t);border-color:var(--t)}
+.seg button.on.n{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.sec{margin-top:18px}
+.sec .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sec .sh b{font-size:15px}
+.sec .sh small{color:var(--sub);font-weight:normal;margin-left:6px}
+.trip{background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
+.trip .d{font-weight:600;font-size:14px}
+.trip .d span{color:var(--sub);font-weight:normal;font-size:12px;margin-left:6px}
+.trip .cs{font-size:13px;color:var(--sub);margin-top:2px}
+.citylist .ci{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line)}
+.citylist .ci:last-child{border-bottom:none}
+.ci .cn{flex:1;min-width:0}
+.ci .cn small{color:var(--sub);font-size:12px;margin-left:4px}
+.cnt{background:var(--pin);color:#fff;border-radius:999px;font-size:12px;padding:1px 8px;font-weight:700;flex:none}
+.ci a,.ci button.ic{border:none;background:var(--bg);color:var(--ink);border-radius:8px;padding:5px 8px;font-size:13px;text-decoration:none;flex:none}
+.muted{color:var(--sub);font-size:13px}
+label.lb{display:block;font-size:13px;color:var(--sub);margin:12px 0 4px}
+.sheet input,.sheet textarea,.panel input,.panel textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px;font-family:inherit}
+textarea{min-height:64px;resize:vertical}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dates input{min-width:0}
+
+.panel{position:fixed;inset:0;background:var(--panel);z-index:15;display:none;flex-direction:column;max-width:720px;margin:0 auto}
+.panel.on{display:flex}
+.panel .ph{padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.panel .ph h2{margin:0;font-size:17px}
+.panel .pb{flex:1;overflow-y:auto;padding:12px 16px calc(24px + env(safe-area-inset-bottom));overscroll-behavior:contain}
+.res{margin-top:8px}
+.res button{display:flex;width:100%;text-align:left;align-items:center;gap:8px;padding:11px 4px;border:none;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:15px}
+.res button small{color:var(--sub);font-size:12px}
+.res button .add{margin-left:auto;color:var(--accent);font-size:20px}
+.res button.done .add{color:var(--sub)}
+.tog{display:flex;flex-wrap:wrap;gap:6px}
+.tog button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:14px}
+.tog button.on{background:var(--pin);border-color:var(--pin);color:#fff}
+
+.modal{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal.on{display:flex}
+.modal .box{background:var(--panel);border-radius:14px;padding:18px;max-width:360px;width:100%}
+.modal .box p{margin:0 0 12px;line-height:1.6}
+.modal .row2{display:flex;gap:8px}
+.modal .row2 .btn{margin:0}
+.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-size:14px;z-index:30;display:none;max-width:90vw}
+.toast.on{display:block}
+#updbar{display:none;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:14px;cursor:pointer}
+#updbar.on{display:block}
+</style>
+</head>
+<body>
+<div id="updbar">新しい版があります · タップで更新</div>
+<header>
+  <h1>🌏 訪れた国</h1>
+  <div class="count"><b id="hdCount">0</b> / 195 か国</div>
+</header>
+<main>
+  <section class="view on" id="mapView">
+    <svg id="map"></svg>
+    <div class="legend" id="legend"></div>
+    <div class="mapbtns"><button id="zin" aria-label="拡大">＋</button><button id="zout" aria-label="縮小">－</button><button id="zreset" aria-label="全体" style="font-size:16px">⟲</button></div>
+  </section>
+  <section class="view" id="listView">
+    <div class="search">
+      <input id="q" type="search" placeholder="国名を検索（日本語・英語）" autocomplete="off">
+      <div class="chips" id="chips">
+        <button data-m="list" class="on">☰ リスト</button><button data-m="flags">🏳️ 国旗</button><span class="sep"></span>
+        <button data-f="all" class="on">すべて</button><button data-f="done">行った・住んだ</button><button data-f="l">住んだ</button><button data-f="t">乗り継ぎ</button><button data-f="w">行きたい</button><button data-f="none">まだ</button><button data-f="terr">地域も表示</button>
+      </div>
+    </div>
+    <div class="wrap" id="list" style="padding-top:0"></div>
+  </section>
+  <section class="view" id="statsView"><div class="wrap" id="stats"></div></section>
+  <section class="view" id="setView"><div class="wrap">
+    <div class="card">
+      <h2>色分け</h2>
+      <div id="colors"></div>
+      <button class="btn ghost small" id="colorReset" style="margin-top:10px">最初の色に戻す</button>
+    </div>
+    <div class="card">
+      <h2>バックアップ</h2>
+      <p>記録はこの端末の中だけに保存されます（オフラインでも使えます）。機種変更やブラウザのデータ削除に備えて、ときどきファイルに保存してください。iPhoneは共有シート →「"ファイル"に保存」→ iCloud Drive がおすすめです。</p>
+      <button class="btn" id="exportBtn">ファイルに保存</button>
+      <button class="btn ghost" id="importBtn">ファイルから戻す</button>
+      <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
+    </div>
+    <div class="card">
+      <h2>ホーム画面に追加</h2>
+      <p>Safariで開いて 共有 →「ホーム画面に追加」すると、アプリのように開けて、圏外でも使えます。最初の1回だけネットが必要です。</p>
+    </div>
+    <div class="card">
+      <h2>数え方</h2>
+      <p>「か国」は国連加盟国193＋バチカン・パレスチナの195。「行った」と「住んだ」を数えます（乗り継ぎ・行きたいは数えません）。台湾・香港・グリーンランドなどは「地域」として別に数えます。</p>
+      <p>都市の回数は、その都市を入れた旅行の数です。都市のデータは GeoNames（人口1.5万人以上、CC BY 4.0）。リストにない町は名前だけで追加できます。「地図」ボタンは Google マップを開きます（ネットが必要）。</p>
+    </div>
+    <div class="card">
+      <h2>リセット</h2>
+      <button class="btn danger" id="resetBtn">すべての記録を消す</button>
+    </div>
+    <p style="text-align:center;color:var(--sub);font-size:12px" id="ver"></p>
+  </div></section>
+</main>
+<nav>
+  <button data-v="mapView" class="on"><span>🗺️</span>地図</button>
+  <button data-v="listView"><span>📋</span>リスト</button>
+  <button data-v="statsView"><span>📊</span>統計</button>
+  <button data-v="setView"><span>⚙️</span>設定</button>
+</nav>
+
+<div class="sheetbg" id="sheetbg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="panel" id="panel"></div>
+<div class="modal" id="modal"><div class="box"><p id="modalMsg"></p><div class="row2"><button class="btn ghost" id="modalNo">やめる</button><button class="btn" id="modalYes">OK</button></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="countries.js"></script>
+<script>
+const APP_VERSION = 'v2';
+const CONT = {AS:'アジア',EU:'ヨーロッパ',AF:'アフリカ',NA:'北米・中米',SA:'南米',OC:'オセアニア',AN:'南極'};
+const CONT_ORDER = ['AS','EU','AF','NA','SA','OC','AN'];
+const ST = {v:'行った', l:'住んだ', t:'乗り継ぎ', w:'行きたい'};
+const ST_ORDER = ['v','l','t','w'];
+const DONE = s => s==='v'||s==='l';
+const PALETTE = ['#2a9d8f','#1d5c8a','#8e7cc3','#e9a23b','#e76f51','#d64f8a','#4caf50','#3f7fd9','#7a5c3e','#555f66'];
+const C = {};
+for (const r of COUNTRIES) C[r[0]] = {code:r[0],ja:r[1],en:r[2],cont:r[3],isC:!!r[4],lat:r[5],lng:r[6],shape:!!r[7],flag:r[8]||flagOf(r[0])};
+function flagOf(a){return String.fromCodePoint(...[...a].map(ch=>0x1F1A5+ch.charCodeAt(0)))}
+const $ = s => document.querySelector(s);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g,'').normalize('NFKC').replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+/* ---------- 保存（IndexedDB ＋ localStorage 予備） ---------- */
+// state.c[code] = {s, y, n, cities:[{id,en,ja,lat,lng,rg}], trips:[{id,f,t,cs:[cityId],n}]}
+let state = {v:2, c:{}, colors:{}, updated:0};
+const LS_KEY = 'visited.v1';
+let dbP=null;
+function idb(){return dbP||(dbP=new Promise((res,rej)=>{const r=indexedDB.open('visited',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}))}
+async function idbGet(){const db=await idb();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+async function idbPut(v){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,'state');t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+async function load(){
+  let s=null;
+  try{const raw=await idbGet(); if(raw) s=JSON.parse(raw)}catch(e){}
+  if(!s){try{const raw=localStorage.getItem(LS_KEY); if(raw) s=JSON.parse(raw)}catch(e){}}
+  if(s&&s.c) state=clean(s);
+}
+let saveTimer=null;
+function save(){
+  state.updated=Date.now();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(flush,300);
+}
+function flush(){
+  clearTimeout(saveTimer);
+  const raw=JSON.stringify(state);
+  idbPut(raw).catch(()=>{});
+  try{localStorage.setItem(LS_KEY,raw)}catch(e){}
+}
+addEventListener('pagehide',flush);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)flush()});
+
+// 読み込んだデータを安全な形にそろえる（バックアップ読み込みにも使う）
+function clean(s){
+  const out={v:2,c:{},colors:{},updated:s.updated||Date.now()};
+  const str=(x,n=500)=>x==null?'':String(x).slice(0,n);
+  const date=x=>/^\d{4}-\d{2}-\d{2}$/.test(x)?x:'';
+  for(const [k,r] of Object.entries(s.c||{})){
+    if(!C[k]||!r) continue;
+    const o={};
+    if(ST[r.s]) o.s=r.s;
+    if(r.y) o.y=str(r.y,10);
+    if(r.n) o.n=str(r.n,5000);
+    if(r.t) o.t=+r.t||0;
+    if(Array.isArray(r.cities)) o.cities=r.cities.filter(c=>c&&c.id&&(c.en||c.ja)).map(c=>({id:str(c.id,40),en:str(c.en,120),ja:str(c.ja,120),...(isFinite(c.lat)&&isFinite(c.lng)&&c.lat!==null?{lat:+c.lat,lng:+c.lng}:{}),...(c.rg?{rg:str(c.rg,120)}:{})}));
+    if(Array.isArray(r.trips)) o.trips=r.trips.filter(t=>t&&t.id).map(t=>({id:str(t.id,40),f:date(t.f),t:date(t.t),cs:Array.isArray(t.cs)?t.cs.map(x=>str(x,40)):[],...(t.n?{n:str(t.n,5000)}:{})}));
+    if(o.s||o.cities?.length||o.trips?.length||o.n) out.c[k]=o;
+  }
+  for(const k of ST_ORDER) if(/^#[0-9a-f]{6}$/i.test(s.colors?.[k]||'')) out.colors[k]=s.colors[k];
+  return out;
+}
+const rec = code => state.c[code];
+const stOf = code => rec(code)?.s || '';
+const R = code => state.c[code] || (state.c[code]={});
+function tidy(code){const r=state.c[code]; if(r&&!r.s&&!r.cities?.length&&!r.trips?.length&&!r.n) delete state.c[code]}
+
+function setStatus(code,s){
+  const r=R(code);
+  if(s){ r.s=s; r.t=r.t||Date.now(); } else delete r.s;
+  tidy(code); save(); changed();
+}
+// 都市や旅行を入れたら「行った」にする（住んだ・乗り継ぎはそのまま）
+function markVisited(code){const r=R(code); if(!r.s||r.s==='w'){r.s='v';r.t=r.t||Date.now()}}
+
+/* ---------- 都市・旅行の計算 ---------- */
+const cityName = c => c.ja||c.en;
+function cityCount(r,id){let n=0; for(const t of r.trips||[]) if(t.cs.includes(id)) n++; return Math.max(1,n)}
+function tripsSorted(r){return [...(r.trips||[])].sort((a,b)=>(b.f||'').localeCompare(a.f||''))}
+function firstYear(r){
+  if(!r) return '';
+  const ds=(r.trips||[]).map(t=>t.f).filter(Boolean).sort();
+  return ds.length?ds[0].slice(0,4):(r.y||'');
+}
+function days(t){if(!t.f) return 0; const a=new Date(t.f), b=new Date(t.t||t.f); return Math.round((b-a)/864e5)+1}
+function fmtD(d){return d?d.replace(/-/g,'/'):'?'}
+function fmtRange(t){
+  if(!t.f) return '日付なし';
+  if(!t.t||t.t===t.f) return fmtD(t.f);
+  return fmtD(t.f)+' – '+(t.t.slice(0,4)===t.f.slice(0,4)?t.t.slice(5).replace('-','/'):fmtD(t.t));
+}
+function gmaps(c,code){
+  const q=c.lat!=null?`${c.lat},${c.lng}`:encodeURIComponent(c.en+', '+C[code].en);
+  return 'https://www.google.com/maps/search/?api=1&query='+q;
+}
+
+/* ---------- 都市データ（初めて使うときだけ読み込む） ---------- */
+let CITIES=null, citiesP=null;
+function loadCities(){
+  return citiesP||(citiesP=fetch('cities.json').then(r=>r.json()).then(j=>{CITIES=j;return j}).catch(e=>{citiesP=null;throw e}));
+}
+const cityKeyCache={};
+function searchCities(code,q){
+  const d=CITIES?.[code]; if(!d) return [];
+  let keys=cityKeyCache[code];
+  if(!keys) keys=cityKeyCache[code]=d.c.map(c=>norm(c[1]+' '+c[2]));
+  const nq=norm(q.trim()); const out=[];
+  if(!nq){ for(let i=0;i<Math.min(30,d.c.length);i++) out.push(d.c[i]); return out; }
+  const pre=[],mid=[];
+  for(let i=0;i<d.c.length;i++){
+    const k=keys[i], p=k.indexOf(nq);
+    if(p<0) continue;
+    (p===0||k[p-1]===' '?pre:mid).push(d.c[i]);
+    if(pre.length>=40) break;
+  }
+  return pre.concat(mid).slice(0,40);
+}
+
+/* ---------- 色 ---------- */
+const DEF_COL={};
+function applyColors(){
+  const st=document.documentElement.style;
+  for(const k of ST_ORDER){ if(state.colors[k]) st.setProperty('--'+k,state.colors[k]); else st.removeProperty('--'+k); }
+}
+function curColor(k){return state.colors[k]||getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim()}
+function renderColors(){
+  $('#colors').innerHTML=ST_ORDER.map(k=>`<div class="colrow"><span>${ST[k]}</span><div class="pal">${PALETTE.slice(0,6).map(p=>`<button data-k="${k}" data-c="${p}" style="background:${p}" aria-label="${p}"></button>`).join('')}</div><input type="color" data-k="${k}" value="${toHex(curColor(k))}"></div>`).join('');
+}
+function toHex(c){if(/^#[0-9a-f]{6}$/i.test(c))return c;const m=c.match(/\d+/g);return m?'#'+m.slice(0,3).map(x=>(+x).toString(16).padStart(2,'0')).join(''):'#888888'}
+function setColor(k,c){state.colors[k]=c; applyColors(); save(); renderColors();}
+$('#colors').addEventListener('click',e=>{const b=e.target.closest('button[data-k]'); if(b) setColor(b.dataset.k,b.dataset.c)});
+$('#colors').addEventListener('change',e=>{if(e.target.dataset.k) setColor(e.target.dataset.k,e.target.value)});
+$('#colorReset').onclick=()=>{state.colors={}; applyColors(); save(); renderColors(); toast('最初の色に戻しました')};
+function renderLegend(){
+  $('#legend').innerHTML=ST_ORDER.map(k=>`<span><i style="background:var(--${k})"></i>${ST[k]}</span>`).join('')+'<span><i class="p"></i>都市</span>';
+}
+
+/* ---------- 地図 ---------- */
+let svg,g,gPins,proj,path,zoom,features,curK=1,selCode=null,homeT=d3.zoomIdentity;
+function initMap(world){
+  svg=d3.select('#map');
+  g=svg.append('g');
+  features=topojson.feature(world,world.objects.countries).features.filter(f=>f.id&&C[f.id]);
+  proj=d3.geoNaturalEarth1();
+  path=d3.geoPath(proj);
+  g.append('path').attr('class','sphere').attr('fill','var(--sea)');
+  g.selectAll('path.c').data(features).join('path').attr('class','c').on('click',(e,d)=>openSheet(d.id));
+  const noShape=Object.values(C).filter(c=>!c.shape&&c.cont!=='AN');
+  g.selectAll('circle.dot').data(noShape).join('circle').attr('class','dot').on('click',(e,d)=>openSheet(d.code));
+  gPins=g.append('g');
+  let raf=0;
+  zoom=d3.zoom().scaleExtent([1,60]).on('zoom',e=>{
+    g.attr('transform',e.transform);
+    if(e.transform.k!==curK){curK=e.transform.k; cancelAnimationFrame(raf); raf=requestAnimationFrame(sizeMarks)}
+  });
+  svg.call(zoom).on('dblclick.zoom',null);
+  layout(); paintMap(); drawPins();
+  new ResizeObserver(()=>{if($('#mapView').classList.contains('on'))layout()}).observe($('#mapView'));
+  $('#zin').onclick=()=>svg.transition().call(zoom.scaleBy,1.8);
+  $('#zout').onclick=()=>svg.transition().call(zoom.scaleBy,1/1.8);
+  $('#zreset').onclick=()=>svg.transition().call(zoom.transform,homeT);
+}
+function sizeMarks(){
+  g.selectAll('circle.dot').attr('r',3.2/curK);
+  gPins.selectAll('circle').attr('r',Math.max(1.2,2.6/Math.sqrt(curK))/Math.sqrt(curK));
+}
+function layout(){
+  const el=$('#mapView'); const w=el.clientWidth,h=el.clientHeight; if(!w||!h||!svg) return;
+  if(layout.w===w&&layout.h===h) return; layout.w=w; layout.h=h;
+  svg.attr('viewBox',`0 0 ${w} ${h}`);
+  // 縦長の画面では地図を高さいっぱいにして、横にスワイプできるようにする（南極は除いて合わせる）
+  const mapW=Math.max(w,h*1.25);
+  proj.fitExtent([[8,8],[mapW-8,h-8]],{type:'FeatureCollection',features:features.filter(f=>f.id!=='AQ')});
+  const [[sx0,sy0],[sx1,sy1]]=path.bounds({type:'Sphere'});
+  g.select('path.sphere').attr('d',path({type:'Sphere'}));
+  g.selectAll('path.c').attr('d',path);
+  g.selectAll('circle.dot').attr('cx',d=>proj([d.lng,d.lat])[0]).attr('cy',d=>proj([d.lng,d.lat])[1]);
+  drawPins(); sizeMarks();
+  zoom.translateExtent([[Math.min(0,sx0),Math.min(0,sy0)],[Math.max(mapW,sx1),Math.max(h,sy1)]]).extent([[0,0],[w,h]]);
+  homeT=d3.zoomIdentity.translate(Math.min(0,Math.max(w-mapW,w/2-proj([120,30])[0])),0);
+  if(!layout.done){layout.done=true;svg.call(zoom.transform,homeT)}
+}
+function paintMap(){
+  if(!g) return;
+  g.selectAll('path.c').attr('class',d=>'c '+stOf(d.id)+(d.id===selCode?' sel':''));
+  g.selectAll('circle.dot').attr('class',d=>'dot '+stOf(d.code)+(d.code===selCode?' sel':''));
+  g.selectAll('path.c.sel, circle.dot.sel').raise();
+  gPins.raise();
+}
+function drawPins(){
+  if(!gPins) return;
+  const pins=[];
+  for(const [code,r] of Object.entries(state.c)) for(const c of r.cities||[]) if(c.lat!=null) pins.push({code,c});
+  gPins.selectAll('circle').data(pins,d=>d.code+d.c.id).join('circle').attr('class','pin')
+    .attr('cx',d=>proj([d.c.lng,d.c.lat])[0]).attr('cy',d=>proj([d.c.lng,d.c.lat])[1])
+    .attr('r',Math.max(1.2,2.6/Math.sqrt(curK))/Math.sqrt(curK))
+    .on('click',(e,d)=>openSheet(d.code));
+}
+function zoomTo(code){
+  show('mapView');
+  if(!features) return;
+  requestAnimationFrame(()=>{
+    const el=$('#mapView'),w=el.clientWidth,h=el.clientHeight;
+    const fs=features.filter(f=>f.id===code);
+    let x,y,k;
+    if(fs.length){
+      // 本土（いちばん大きい島）に合わせる。フランス本土と仏領ギアナなどを分ける
+      const parts=fs.flatMap(f=>f.geometry.type==='MultiPolygon'?f.geometry.coordinates.map(c=>({type:'Polygon',coordinates:c})):[f.geometry]);
+      const f=parts.map(f=>({f,a:path.area(f)})).sort((a,b)=>b.a-a.a)[0].f;
+      const [[x0,y0],[x1,y1]]=path.bounds(f);
+      k=Math.min(25,0.6/Math.max((x1-x0)/w,(y1-y0)/h)); x=(x0+x1)/2; y=(y0+y1)/2;
+    }else{ [x,y]=proj([C[code].lng,C[code].lat]); k=14; }
+    k=Math.max(1,k);
+    svg.transition().duration(600).call(zoom.transform,d3.zoomIdentity.translate(w/2,h/2).scale(k).translate(-x,-y));
+  });
+}
+
+/* ---------- 国の詳細シート ---------- */
+let sheetCode=null;
+function openSheet(code){
+  const first=sheetCode!==code||!$('#sheet').classList.contains('on');
+  sheetCode=code; selCode=code; paintMap();
+  const c=C[code], r=rec(code)||{}, s=r.s||'';
+  const trips=tripsSorted(r), cities=[...(r.cities||[])].map(x=>({...x,n:cityCount(r,x.id)})).sort((a,b)=>b.n-a.n);
+  const sc=$('#sheet').scrollTop;
+  $('#sheet').innerHTML=`
+    <div class="hd"><div class="flag">${c.flag}</div><div><h2>${esc(c.ja)}</h2><small>${esc(c.en)} · ${CONT[c.cont]}${c.isC?'':' · 地域'}</small></div><button class="x" data-a="close" aria-label="閉じる">✕</button></div>
+    <div class="seg">${ST_ORDER.map(k=>`<button data-s="${k}" class="${k} ${s===k?'on':''}">${ST[k]}</button>`).join('')}<button data-s="" class="n ${!s?'on':''}">なし</button></div>
+    <div class="sec"><div class="sh"><b>旅行<small>${trips.length?trips.length+'回':''}</small></b><button class="btn small" data-a="addTrip">＋ 旅行を追加</button></div>
+      ${trips.length?trips.map(t=>`<div class="trip" data-trip="${t.id}"><div class="d">${fmtRange(t)}${t.f?`<span>${days(t)}日間</span>`:''}</div>${t.cs.length?`<div class="cs">${t.cs.map(id=>esc(cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))).join('、')}</div>`:''}${t.n?`<div class="cs">${esc(t.n)}</div>`:''}</div>`).join(''):'<div class="muted">いつからいつまで行ったかと、回った都市を記録できます。</div>'}
+    </div>
+    <div class="sec"><div class="sh"><b>都市<small>${cities.length?cities.length+'都市':''}</small></b><button class="btn small" data-a="addCity">＋ 都市を追加</button></div>
+      <div class="citylist">${cities.map(x=>`<div class="ci"><div class="cn">${esc(cityName(x))}${x.ja&&x.en!==x.ja?`<small>${esc(x.en)}</small>`:''}</div><span class="cnt">${x.n}回</span><a href="${gmaps(x,code)}" target="_blank" rel="noopener">地図</a><button class="ic" data-delcity="${x.id}" aria-label="削除">✕</button></div>`).join('')||'<div class="muted">まだありません</div>'}</div>
+    </div>
+    ${trips.some(t=>t.f)?'':`<label class="lb">初めて行った年（旅行を入れない場合）</label><input id="shY" type="number" inputmode="numeric" placeholder="例 2023" value="${esc(r.y||'')}">`}
+    <label class="lb">メモ</label><textarea id="shN" placeholder="思い出など">${esc(r.n||'')}</textarea>
+    <button class="btn ghost" data-a="tomap" style="margin-top:14px">地図で見る</button>`;
+  if(!first) $('#sheet').scrollTop=sc; else $('#sheet').scrollTop=0;
+  const upd=(k,v)=>{const r=R(code); if(v) r[k]=v; else delete r[k]; tidy(code); save(); changed({noSheet:true});};
+  $('#shY')?.addEventListener('input',e=>upd('y',e.target.value.trim()));
+  $('#shN').addEventListener('input',e=>upd('n',e.target.value));
+  $('#sheetbg').classList.add('on'); $('#sheet').classList.add('on');
+}
+$('#sheet').addEventListener('click',async e=>{
+  const code=sheetCode, t=e.target;
+  const sb=t.closest('[data-s]'); if(sb){ setStatus(code,sb.dataset.s); return; }
+  const a=t.closest('[data-a]')?.dataset.a;
+  if(a==='close') return closeSheet();
+  if(a==='tomap'){ closeSheet(true); return zoomTo(code); }
+  if(a==='addTrip') return openTrip(code,null);
+  if(a==='addCity') return openCityPicker(code,{onPick:c=>{addCity(code,c);openSheet(code);}});
+  const tr=t.closest('[data-trip]'); if(tr) return openTrip(code,tr.dataset.trip);
+  const dc=t.closest('[data-delcity]');
+  if(dc){
+    const r=R(code), id=dc.dataset.delcity, city=r.cities.find(x=>x.id===id);
+    if(!await ask(`「${cityName(city)}」を消しますか？（旅行からも外れます）`,'消す')) return;
+    r.cities=r.cities.filter(x=>x.id!==id); for(const tp of r.trips||[]) tp.cs=tp.cs.filter(x=>x!==id);
+    tidy(code); save(); changed();
+  }
+});
+function closeSheet(keepSel){
+  $('#sheetbg').classList.remove('on'); $('#sheet').classList.remove('on'); sheetCode=null;
+  if(keepSel!==true){selCode=null; paintMap();}
+}
+$('#sheetbg').onclick=closeSheet;
+
+// 都市を国に追加（同じ都市は1つにまとめる）。都市のidを返す
+function addCity(code,c){
+  const r=R(code); r.cities=r.cities||[];
+  let ex=r.cities.find(x=>x.id===c.id||(!c.gid&&norm(cityName(x))===norm(cityName(c))));
+  if(!ex){ ex={id:c.id,en:c.en,ja:c.ja,...(c.lat!=null?{lat:c.lat,lng:c.lng}:{}),...(c.rg?{rg:c.rg}:{})}; r.cities.push(ex); }
+  markVisited(code); save(); changed({noSheet:true});
+  return ex.id;
+}
+
+/* ---------- パネル（都市検索・旅行の編集） ---------- */
+function openPanel(title,body,onBack){
+  $('#panel').innerHTML=`<div class="ph"><button class="x" style="margin:0" id="pBack" aria-label="戻る">‹</button><h2>${esc(title)}</h2></div><div class="pb">${body}</div>`;
+  $('#panel').classList.add('on');
+  $('#pBack').onclick=()=>{closePanel(); onBack&&onBack()};
+}
+function closePanel(){$('#panel').classList.remove('on'); $('#panel').innerHTML=''}
+
+function openCityPicker(code,{onPick,picked=new Set(),onBack}){
+  openPanel(C[code].ja+'の都市を追加',`
+    <input id="cq" type="search" placeholder="都市名（日本語・英語）" autocomplete="off">
+    <div class="res" id="cres"><div class="muted" style="padding:12px 0">読み込み中…</div></div>`,onBack);
+  const q=$('#cq'); q.focus();
+  const r=rec(code)||{};
+  const have=new Set((r.cities||[]).map(x=>x.id));
+  const render=()=>{
+    const v=q.value.trim();
+    if(!CITIES){return}
+    const d=CITIES[code], list=searchCities(code,v);
+    let h='';
+    if(!v&&(r.cities||[]).length){
+      h+='<div class="muted" style="margin-top:8px">記録した都市</div>'+r.cities.map(x=>`<button data-own="${x.id}" class="${picked.has(x.id)?'done':''}"><span>${esc(cityName(x))} <small>${esc(x.en!==cityName(x)?x.en:'')}</small></span><span class="add">${picked.has(x.id)?'✓':'＋'}</span></button>`).join('');
+      h+='<div class="muted" style="margin-top:12px">大きい都市</div>';
+    }
+    h+=list.map(c=>{const id='g'+c[0], on=picked.has(id)||(!onBack&&have.has(id)); return `<button data-gid="${c[0]}" class="${on?'done':''}"><span>${esc(c[2]||c[1])} <small>${c[2]?esc(c[1])+' · ':''}${esc(d.r[c[6]]||'')}${c[7]?' · 首都':''}</small></span><span class="add">${on?'✓':'＋'}</span></button>`}).join('');
+    if(v) h+=`<button data-free="1"><span>「${esc(v)}」をそのまま追加 <small>地図に点は出ません</small></span><span class="add">＋</span></button>`;
+    if(!h) h='<div class="muted" style="padding:12px 0">見つかりません</div>';
+    $('#cres').innerHTML=h;
+  };
+  let tm; q.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(render,120)});
+  loadCities().then(render).catch(()=>{$('#cres').innerHTML=`<div class="muted" style="padding:12px 0">都市リストを読み込めませんでした（一度ネットにつないで開くと保存されます）。下から名前だけで追加できます。</div>`;
+    q.addEventListener('input',()=>{const v=q.value.trim(); $('#cres').innerHTML=v?`<button data-free="1"><span>「${esc(v)}」を追加</span><span class="add">＋</span></button>`:''});});
+  $('#cres').onclick=e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    let c;
+    if(b.dataset.gid){const g=CITIES[code].c.find(x=>x[0]==b.dataset.gid); c={id:'g'+g[0],gid:g[0],en:g[1],ja:g[2],lat:g[3],lng:g[4],rg:CITIES[code].r[g[6]]||''};}
+    else if(b.dataset.own){c=r.cities.find(x=>x.id===b.dataset.own);}
+    else {const v=q.value.trim(); c={id:'u'+uid(),en:v,ja:''};}
+    if(!onBack){ closePanel(); onPick(c); return; }
+    onPick(c); toast(`${cityName(c)} を入れました`); q.value=''; render(); q.focus();
+  };
+}
+
+function openTrip(code,tripId){
+  const r=rec(code)||{};
+  const orig=tripId?(r.trips||[]).find(t=>t.id===tripId):null;
+  const draft=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),f:'',t:'',cs:[],n:''};
+  const draw=()=>{
+    const rr=rec(code)||{};
+    openPanel((orig?'旅行を編集':'旅行を追加')+' · '+C[code].ja,`
+      <div class="dates"><div><label class="lb">いつから</label><input type="date" id="tf" value="${draft.f}"></div><div><label class="lb">いつまで</label><input type="date" id="tt" value="${draft.t}"></div></div>
+      <label class="lb">行った都市（タップで選ぶ）</label>
+      <div class="tog" id="tcs">${(rr.cities||[]).map(x=>`<button data-id="${x.id}" class="${draft.cs.includes(x.id)?'on':''}">${esc(cityName(x))}</button>`).join('')}<button data-a="more" style="border-style:dashed">＋ 都市をさがす</button></div>
+      <label class="lb">メモ</label><textarea id="tn" placeholder="誰と行った、何をした など">${esc(draft.n||'')}</textarea>
+      <button class="btn" id="tSave">保存</button>
+      ${orig?'<button class="btn danger" id="tDel">この旅行を消す</button>':''}`);
+    const sync=()=>{draft.f=$('#tf').value; draft.t=$('#tt').value; draft.n=$('#tn').value;};
+    $('#tf').onchange=()=>{sync(); if(!draft.t||draft.t<draft.f){draft.t=draft.f;$('#tt').value=draft.f}};
+    $('#tcs').onclick=e=>{
+      const b=e.target.closest('button'); if(!b) return; sync();
+      if(b.dataset.a==='more'){
+        const picked=new Set(draft.cs);
+        openCityPicker(code,{picked,onPick:c=>{const id=addCity(code,c); if(!draft.cs.includes(id)) draft.cs.push(id); picked.add(id);},onBack:draw});
+        return;
+      }
+      const id=b.dataset.id; draft.cs=draft.cs.includes(id)?draft.cs.filter(x=>x!==id):[...draft.cs,id]; b.classList.toggle('on');
+    };
+    $('#tSave').onclick=()=>{
+      sync();
+      if(draft.f&&draft.t&&draft.t<draft.f) [draft.f,draft.t]=[draft.t,draft.f];
+      if(!draft.f&&!draft.cs.length&&!draft.n){toast('日付か都市を入れてください');return}
+      const r=R(code); r.trips=(r.trips||[]).filter(t=>t.id!==draft.id);
+      const t={id:draft.id,f:draft.f,t:draft.t||draft.f,cs:draft.cs}; if(draft.n.trim()) t.n=draft.n.trim();
+      r.trips.push(t); markVisited(code); save(); closePanel(); changed(); toast('保存しました');
+    };
+    $('#tDel')?.addEventListener('click',async()=>{
+      if(!await ask('この旅行を消しますか？（都市は残ります）','消す')) return;
+      const r=R(code); r.trips=r.trips.filter(t=>t.id!==draft.id); tidy(code); save(); closePanel(); changed();
+    });
+  };
+  draw();
+}
+
+/* ---------- リスト ---------- */
+let filter='all', showTerr=false, mode='list';
+const ALL=Object.values(C).sort((a,b)=>a.ja.localeCompare(b.ja,'ja'));
+for(const c of ALL) c.key=norm(c.ja+' '+c.en+' '+c.code);
+function renderList(){
+  const q=norm($('#q').value.trim());
+  const items=ALL.filter(c=>{
+    if(!showTerr&&!c.isC&&!q&&!stOf(c.code)) return false;
+    if(q&&!c.key.includes(q)) return false;
+    const s=stOf(c.code);
+    if(filter==='done') return DONE(s);
+    if(filter==='none') return !s;
+    if(filter!=='all') return s===filter;
+    return true;
+  });
+  let html='';
+  for(const k of CONT_ORDER){
+    const its=items.filter(c=>c.cont===k); if(!its.length) continue;
+    const tot=ALL.filter(c=>c.cont===k&&c.isC), done=tot.filter(c=>DONE(stOf(c.code))).length;
+    html+=`<div class="group"><h3><span>${CONT[k]}</span><span>${tot.length?done+' / '+tot.length:''}</span></h3>`;
+    if(mode==='flags'){
+      html+='<div class="flags">'+its.map(c=>{const s=stOf(c.code);return `<div class="ftile ${s||'off'}" data-c="${c.code}"><div class="f">${c.flag}</div><div>${esc(c.ja)}</div></div>`}).join('')+'</div>';
+    }else{
+      html+='<div class="rows">';
+      for(const c of its){
+        const s=stOf(c.code), r=rec(c.code);
+        const sub=[c.en]; const y=firstYear(r); if(y) sub.push(y);
+        if(r?.trips?.length) sub.push(r.trips.length+'回'); if(r?.cities?.length) sub.push(r.cities.length+'都市');
+        html+=`<div class="row" data-c="${c.code}"><div class="flag">${c.flag}</div><div class="nm"><div>${esc(c.ja)}${c.isC?'':'<span class="terr">地域</span>'}</div><small>${esc(sub.join(' · '))}</small></div><button class="tick ${s}" data-t="${c.code}" aria-label="行ったを切り替え">${s==='w'?'★':s==='t'?'✈':s?'✓':''}</button></div>`;
+      }
+      html+='</div>';
+    }
+    html+='</div>';
+  }
+  $('#list').innerHTML=html||'<div class="empty">見つかりません</div>';
+}
+$('#list').addEventListener('click',e=>{
+  const t=e.target.closest('[data-t]');
+  if(t){ const code=t.dataset.t, s=stOf(code); setStatus(code, DONE(s)?'':'v'); toast(DONE(s)?`${C[code].ja} を外しました`:`${C[code].ja} を「行った」にしました`); return; }
+  const r=e.target.closest('[data-c]'); if(r) openSheet(r.dataset.c);
+});
+let qT; $('#q').addEventListener('input',()=>{clearTimeout(qT);qT=setTimeout(renderList,100)});
+$('#chips').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.m){mode=b.dataset.m;$('#chips').querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x===b));
+    if(mode==='flags'&&filter==='all'){filter='done';$('#chips').querySelectorAll('[data-f]:not([data-f=terr])').forEach(x=>x.classList.toggle('on',x.dataset.f==='done'))}}
+  else if(b.dataset.f==='terr'){showTerr=!showTerr;b.classList.toggle('on',showTerr)}
+  else{filter=b.dataset.f;$('#chips').querySelectorAll('[data-f]:not([data-f=terr])').forEach(x=>x.classList.toggle('on',x===b))}
+  renderList();
+});
+
+/* ---------- 統計 ---------- */
+function renderStats(){
+  const countries=ALL.filter(c=>c.isC), done=c=>DONE(stOf(c.code)), n=countries.filter(done).length;
+  const terr=ALL.filter(c=>!c.isC&&done(c)).length;
+  const cnt=k=>ALL.filter(c=>stOf(c.code)===k).length;
+  let nCities=0,nTrips=0,nDays=0;
+  for(const r of Object.values(state.c)){nCities+=(r.cities||[]).length; for(const t of r.trips||[]){nTrips++; nDays+=days(t)}}
+  const conts=CONT_ORDER.filter(k=>k!=='AN');
+  const contsDone=conts.filter(k=>countries.some(c=>c.cont===k&&done(c))).length;
+  let h=`<div class="card"><div class="big"><b>${n}</b><span>/ 195 か国 · 世界の ${(n/195*100).toFixed(1)}%</span></div>
+    <div class="bar"><i style="width:${n/195*100}%"></i></div>
+    <div class="minis"><div><b>${contsDone}</b><small>大陸 / 6</small></div><div><b>${nCities}</b><small>都市</small></div><div><b>${nTrips}</b><small>旅行</small></div>
+    <div><b>${terr}</b><small>地域</small></div><div><b>${cnt('l')}</b><small>住んだ</small></div><div><b>${cnt('w')}</b><small>行きたい</small></div></div>
+    ${nDays?`<p>旅行日数の合計：${nDays}日 · 乗り継ぎ：${cnt('t')}</p>`:''}</div><div class="card"><h2>大陸ごと</h2>`;
+  for(const k of conts){
+    const t=countries.filter(c=>c.cont===k), d=t.filter(done).length;
+    h+=`<div class="cont"><div class="top"><b>${CONT[k]}</b><span>${d} / ${t.length}（${Math.round(d/t.length*100)}%）</span></div><div class="bar"><i style="width:${d/t.length*100}%"></i></div></div>`;
+  }
+  h+='</div>';
+  // 年ごと：旅行と「初めて行った年」だけの国
+  const items=[];
+  for(const [code,r] of Object.entries(state.c)){
+    for(const t of r.trips||[]) if(t.f) items.push({code,y:t.f.slice(0,4),d:t.f,t});
+    if(!(r.trips||[]).some(t=>t.f)&&r.y&&DONE(r.s)) items.push({code,y:String(r.y),d:String(r.y)});
+  }
+  items.sort((a,b)=>b.d.localeCompare(a.d));
+  if(items.length){
+    h+='<div class="card ylist"><h2>年ごと</h2>'; let cur=null;
+    for(const it of items){
+      if(it.y!==cur){h+=`<div class="yh">${esc(it.y)}</div>`;cur=it.y}
+      const c=C[it.code], r=rec(it.code);
+      const sub=it.t?[fmtRange(it.t)+' · '+days(it.t)+'日',...it.t.cs.map(id=>cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))].join('　'):'';
+      h+=`<div class="row" data-c="${it.code}"><div class="flag">${c.flag}</div><div class="nm"><div>${esc(c.ja)}</div>${sub?`<small>${esc(sub)}</small>`:''}</div></div>`;
+    }
+    h+='</div>';
+  }
+  // よく行く都市
+  const top=[];
+  for(const [code,r] of Object.entries(state.c)) for(const x of r.cities||[]) top.push({code,x,n:cityCount(r,x.id)});
+  top.sort((a,b)=>b.n-a.n);
+  if(top.length){
+    h+='<div class="card ylist"><h2>よく行く都市</h2>'+top.slice(0,10).map(o=>`<div class="row" data-c="${o.code}"><div class="flag">${C[o.code].flag}</div><div class="nm"><div>${esc(cityName(o.x))}</div><small>${esc(C[o.code].ja)}</small></div><span class="cnt">${o.n}回</span></div>`).join('')+'</div>';
+  }
+  $('#stats').innerHTML=h;
+}
+$('#stats').addEventListener('click',e=>{const r=e.target.closest('[data-c]'); if(r) openSheet(r.dataset.c)});
+
+/* ---------- 画面の更新（見えている画面だけ描き直す） ---------- */
+const dirty={listView:true,statsView:true};
+let chT=0;
+function changed(opt={}){
+  dirty.listView=dirty.statsView=true;
+  $('#hdCount').textContent=ALL.filter(c=>c.isC&&DONE(stOf(c.code))).length;
+  paintMap(); drawPins();
+  if(!opt.noSheet&&sheetCode) openSheet(sheetCode);
+  clearTimeout(chT); chT=setTimeout(renderVisible,opt.noSheet?250:0);
+}
+function renderVisible(){
+  const v=document.querySelector('.view.on').id;
+  if(v==='listView'&&dirty.listView){dirty.listView=false;renderList()}
+  if(v==='statsView'&&dirty.statsView){dirty.statsView=false;renderStats()}
+}
+
+/* ---------- タブ ---------- */
+function show(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='mapView'&&svg) layout();
+  if(v==='setView') renderColors();
+  renderVisible();
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+
+/* ---------- 小物 ---------- */
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
+function ask(msg,yes='OK'){return new Promise(res=>{$('#modalMsg').textContent=msg;$('#modalYes').textContent=yes;$('#modal').classList.add('on');
+  $('#modalYes').onclick=()=>{$('#modal').classList.remove('on');res(true)};$('#modalNo').onclick=()=>{$('#modal').classList.remove('on');res(false)}})}
+
+/* ---------- バックアップ ---------- */
+$('#exportBtn').onclick=async()=>{
+  const d=new Date(), name=`visited-backup-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.json`;
+  const blob=new Blob([JSON.stringify({app:'visited-countries',...state})],{type:'application/json'});
+  const file=new File([blob],name,{type:'application/json'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:name});return}catch(e){if(e.name==='AbortError')return}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+};
+$('#importBtn').onclick=()=>$('#importFile').click();
+$('#importFile').onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const s=JSON.parse(await f.text());
+    if(!s||typeof s.c!=='object') throw 0;
+    const ns=clean(s), n=Object.keys(ns.c).length;
+    if(!await ask(`このファイルの記録（${n}か国・地域）で、今の記録を置き換えます。よろしいですか？`,'置き換える')) return;
+    state=ns; applyColors(); save(); changed(); renderColors(); toast(`${n}件を読み込みました`);
+  }catch(err){toast('読み込めませんでした（形式が違うファイルです）')}
+};
+$('#resetBtn').onclick=async()=>{
+  const n=Object.keys(state.c).length;
+  if(!n){toast('記録はまだありません');return}
+  if(!await ask(`${n}件の記録をすべて消します。元に戻せません。先にバックアップを保存しましたか？`,'消す')) return;
+  state={v:2,c:{},colors:state.colors,updated:Date.now()}; save(); changed(); toast('消しました');
+};
+
+/* ---------- 起動 ---------- */
+(async()=>{
+  $('#ver').textContent='バージョン '+APP_VERSION;
+  await load();
+  applyColors(); renderLegend();
+  $('#hdCount').textContent=ALL.filter(c=>c.isC&&DONE(stOf(c.code))).length;
+  try{ const world=await (await fetch('world.json')).json(); initMap(world); }
+  catch(e){ $('#mapView').insertAdjacentHTML('beforeend','<div class="empty" style="position:absolute;inset:0;padding-top:30%">地図を読み込めませんでした。<br>一度ネットにつないで開いてください。</div>'); }
+  try{ navigator.storage?.persist?.() }catch(e){}
+})();
+
+/* ---------- オフライン（service worker） ---------- */
+if('serviceWorker' in navigator){
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloading)return;reloading=true;flush();location.reload()});
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    const offer=w=>{$('#updbar').classList.add('on');$('#updbar').onclick=()=>w.postMessage('skipWaiting')};
+    if(reg.waiting&&navigator.serviceWorker.controller) offer(reg.waiting);
+    reg.addEventListener('updatefound',()=>{const w=reg.installing;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller) offer(w)})});
+    reg.update().catch(()=>{});
+  }).catch(()=>{});
+}
+</script>
+</body>
+</html>
