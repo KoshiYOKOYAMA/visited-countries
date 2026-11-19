@@ -133,10 +133,13 @@ nav button.on{color:var(--accent);font-weight:700}
 .trip .d{font-weight:600;font-size:14px}
 .trip .d span{color:var(--sub);font-weight:normal;font-size:12px;margin-left:6px}
 .trip .cs{font-size:13px;color:var(--sub);margin-top:2px}
-.citylist .ci{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line)}
+.citylist{background:var(--bg);border-radius:10px;overflow:hidden}
+.citylist .ci{display:flex;width:100%;align-items:center;gap:8px;min-height:52px;padding:10px 12px;border:none;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:16px;text-align:left}
 .citylist .ci:last-child{border-bottom:none}
+.citylist .ci:active{background:var(--line)}
 .ci .cn{flex:1;min-width:0}
-.ci .cn small{color:var(--sub);font-size:12px;margin-left:4px}
+.ci .cn small{color:var(--sub);font-size:12px;margin-left:6px}
+.ci .chev{color:var(--accent);font-size:13px;font-weight:600;flex:none}
 .cnt{background:var(--pin);color:#fff;border-radius:999px;font-size:12px;padding:1px 8px;font-weight:700;flex:none}
 .ci a,.ci button.ic{border:none;background:var(--bg);color:var(--ink);border-radius:8px;padding:5px 8px;font-size:13px;text-decoration:none;flex:none}
 .muted{color:var(--sub);font-size:13px}
@@ -171,6 +174,7 @@ textarea{min-height:64px;resize:vertical}
 .modal .box p{margin:0 0 12px;line-height:1.6}
 .modal .row2{display:flex;gap:8px}
 .modal .row2 .btn{margin:0}
+.modal .btn.del{background:var(--sel)}
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-size:14px;z-index:30;display:none;max-width:90vw}
 .toast.on{display:block}
 #updbar{display:none;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:14px;cursor:pointer}
@@ -252,7 +256,7 @@ textarea{min-height:64px;resize:vertical}
 <script src="vendor/topojson-client.min.js"></script>
 <script src="countries.js"></script>
 <script>
-const APP_VERSION = 'v5';
+const APP_VERSION = 'v6';
 let LANG='en'; try{LANG=localStorage.getItem('visited.lang')||'en'}catch(e){}
 const L = LANG==='en';
 const tr = (ja,en) => L?en:ja;
@@ -499,7 +503,8 @@ function openSheet(code){
       ${trips.length?trips.map(t=>`<div class="trip" data-trip="${t.id}"><div class="d">${fmtRange(t)}${t.f?`<span>${tr(days(t)+'日間',pl(days(t),'day'))}</span>`:''}</div>${t.cs.length?`<div class="cs">${t.cs.map(id=>esc(cityName((r.cities||[]).find(x=>x.id===id)||{en:'?'}))).join(tr('、',', '))}</div>`:''}${t.n?`<div class="cs">${esc(t.n)}</div>`:''}</div>`).join(''):`<div class="muted">${tr('いつからいつまで行ったかと、回った都市を記録できます。','You can record when you went (from – to) and which cities you visited.')}</div>`}
     </div>
     <div class="sec"><div class="sh"><b>${tr('都市','Cities')}<small>${cities.length?tr(cities.length+'都市',String(cities.length)):''}</small></b><button class="btn small" data-a="addCity">${tr('＋ 都市を追加','＋ Add a city')}</button></div>
-      <div class="citylist">${cities.map(x=>`<div class="ci"><div class="cn">${esc(cityName(x))}${citySub(x)?`<small>${esc(citySub(x))}</small>`:''}</div><span class="cnt">${tr(x.n+'回',x.n+'×')}</span><a href="${gmaps(x,code)}" target="_blank" rel="noopener">${tr('地図','Map')}</a><button class="ic" data-delcity="${x.id}" aria-label="${tr('削除','Delete')}">✕</button></div>`).join('')||`<div class="muted">${tr('まだありません','None yet')}</div>`}</div>
+      <div class="citylist">${cities.map(x=>`<button class="ci" data-city="${x.id}"><span class="cn">${esc(cityName(x))}${citySub(x)?`<small>${esc(citySub(x))}</small>`:''}${x.lat==null?`<small>${tr('地図に点なし','no pin')}</small>`:''}</span><span class="cnt">${tr(x.n+'回',x.n+'×')}</span><span class="chev">${tr('編集','Edit')} ›</span></button>`).join('')||`<div class="muted">${tr('まだありません','None yet')}</div>`}</div>
+      ${cities.length?`<div class="muted" style="margin-top:4px">${tr('都市をタップすると、名前の変更・場所の変更・削除ができます。','Tap a city to rename it, change its place, or delete it.')}</div>`:''}
     </div>
     ${trips.some(t=>t.f)?'':`<label class="lb">${tr('初めて行った年（旅行を入れない場合）','Year of first visit (if you don\'t add trips)')}</label><input id="shY" type="number" inputmode="numeric" placeholder="${tr('例 2023','e.g. 2023')}" value="${esc(r.y||'')}">`}
     <label class="lb">${tr('メモ','Notes')}</label><textarea id="shN" placeholder="${tr('思い出など','Memories, etc.')}">${esc(r.n||'')}</textarea>
@@ -518,15 +523,51 @@ $('#sheet').addEventListener('click',async e=>{
   if(a==='tomap'){ closeSheet(true); return zoomTo(code); }
   if(a==='addTrip') return openTrip(code,null);
   if(a==='addCity') return openCityPicker(code,{onPick:c=>{addCity(code,c);openSheet(code);}});
-  const tr=t.closest('[data-trip]'); if(tr) return openTrip(code,tr.dataset.trip);
-  const dc=t.closest('[data-delcity]');
-  if(dc){
-    const r=R(code), id=dc.dataset.delcity, city=r.cities.find(x=>x.id===id);
-    if(!await ask(tr(`「${cityName(city)}」を消しますか？（旅行からも外れます）`,`Delete "${cityName(city)}"? (It will also be removed from your trips.)`),tr('消す','Delete'))) return;
-    r.cities=r.cities.filter(x=>x.id!==id); for(const tp of r.trips||[]) tp.cs=tp.cs.filter(x=>x!==id);
-    tidy(code); save(); changed();
-  }
+  // 注意：ここで変数名に tr を使うと、翻訳の tr() が使えなくなる（v5 で都市を消せなかった原因）
+  const tripEl=t.closest('[data-trip]'); if(tripEl) return openTrip(code,tripEl.dataset.trip);
+  const cityEl=t.closest('[data-city]'); if(cityEl) return openCityEdit(code,cityEl.dataset.city);
 });
+
+/* ---------- 都市の編集（名前・場所・削除） ---------- */
+function openCityEdit(code,id){
+  const r=R(code), city=(r.cities||[]).find(x=>x.id===id); if(!city) return;
+  const inTrips=tripsSorted(r).filter(t=>t.cs.includes(id));
+  const draw=()=>{
+    openPanel(tr('都市を編集','Edit city')+' · '+C[code].nm,`
+      <label class="lb">${tr('名前','Name')}</label>
+      <input id="ceName" value="${esc(cityName(city))}" autocomplete="off">
+      <div class="muted" style="margin-top:4px">${city.lat!=null?tr('地図に点があります','Shown as a pin on the map')+(city.rg?' · '+esc(city.rg):''):tr('地図に点はありません','No pin on the map')}</div>
+      <button class="btn" id="ceSave">${tr('名前を保存','Save name')}</button>
+      <div class="sec"><div class="sh"><b>${tr('行った回数','Visits')}<small>${tr(Math.max(1,inTrips.length)+'回',Math.max(1,inTrips.length)+'×')}</small></b></div>
+        ${inTrips.length?inTrips.map(t=>`<div class="trip" data-trip="${t.id}"><div class="d">${fmtRange(t)}</div></div>`).join(''):`<div class="muted">${tr('まだどの旅行にも入っていません。','Not in any trip yet.')}</div>`}
+      </div>
+      <div class="sec">
+        <button class="btn ghost" id="ceMove">${tr('🔎 別の場所に変える（検索しなおす）','🔎 Change to another place (search again)')}</button>
+        <a class="btn ghost" href="${gmaps(city,code)}" target="_blank" rel="noopener" style="text-decoration:none">${tr('Google マップで見る','Open in Google Maps')}</a>
+        <button class="btn danger" id="ceDel" style="margin-top:24px">${tr('この都市を消す','Delete this city')}</button>
+      </div>`,()=>openSheet(code));
+    $('#ceSave').onclick=()=>{
+      const v=$('#ceName').value.trim(); if(!v){toast(tr('名前を入れてください','Please enter a name'));return}
+      if(L) city.en=v; else city.ja=v;
+      save(); closePanel(); changed(); toast(tr('保存しました','Saved'));
+    };
+    $('.panel .pb').onclick=e=>{const te=e.target.closest('[data-trip]'); if(te){closePanel(); openTrip(code,te.dataset.trip);}};
+    $('#ceMove').onclick=()=>openCityPicker(code,{onPick:c=>{
+      // 旅行とのつながり（id）はそのままで、名前と位置だけ入れかえる
+      city.en=c.en||''; city.ja=c.ja||'';
+      if(c.lat!=null){city.lat=c.lat;city.lng=c.lng}else{delete city.lat;delete city.lng}
+      if(c.rg) city.rg=c.rg; else delete city.rg;
+      save(); changed(); toast(tr(`${cityName(city)} に変えました`,`Changed to ${cityName(city)}`)); openSheet(code);
+    }});
+    $('#ceDel').onclick=async()=>{
+      const n=inTrips.length;
+      if(!await ask(tr(`「${cityName(city)}」を消しますか？${n?`（${n}回の旅行からも外れます。旅行そのものは残ります）`:''}`,`Delete "${cityName(city)}"?${n?` It will be removed from ${pl(n,'trip')}. The trips themselves will stay.`:''}`),tr('消す','Delete'))) return;
+      r.cities=r.cities.filter(x=>x.id!==id); for(const tp of r.trips||[]) tp.cs=tp.cs.filter(x=>x!==id);
+      tidy(code); save(); closePanel(); changed(); toast(tr('消しました','Deleted'));
+    };
+  };
+  draw();
+}
 function closeSheet(keepSel){
   $('#sheetbg').classList.remove('on'); $('#sheet').classList.remove('on'); sheetCode=null;
   if(keepSel!==true){selCode=null; paintMap();}
@@ -802,7 +843,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.
 /* ---------- 小物 ---------- */
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200)}
-function ask(msg,yes='OK'){return new Promise(res=>{$('#modalMsg').textContent=msg;$('#modalYes').textContent=yes;$('#modal').classList.add('on');
+function ask(msg,yes='OK'){return new Promise(res=>{$('#modalMsg').textContent=msg;$('#modalYes').textContent=yes;$('#modalYes').classList.toggle('del',yes===tr('消す','Delete'));$('#modal').classList.add('on');
   $('#modalYes').onclick=()=>{$('#modal').classList.remove('on');res(true)};$('#modalNo').onclick=()=>{$('#modal').classList.remove('on');res(false)}})}
 
 /* ---------- バックアップ ---------- */

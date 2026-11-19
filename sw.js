@@ -1,5 +1,5 @@
 // 版を変えたら VERSION を上げる
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'visited-' + VERSION;
 const FILES = ['./', 'index.html', 'countries.js', 'world.json', 'cities.json', 'vendor/d3.min.js', 'vendor/topojson-client.min.js',
   'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
