@@ -178,16 +178,22 @@ textarea{min-height:64px;resize:vertical}
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-size:14px;z-index:30;display:none;max-width:90vw}
 .toast.on{display:block}
 #warnbar{background:var(--sel);color:#fff;text-align:center;padding:8px 12px;font-size:14px}
+#bkbar{display:none;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--line);padding:8px 12px;font-size:14px}
+#bkbar.on{display:flex}
+#bkbar span{flex:1}
+#bkbar button{border:none;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:600;background:var(--accent);color:#fff}
+#bkbar button.ghost{background:var(--bg);color:var(--ink);font-weight:normal}
 #updbar{display:none;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:14px;cursor:pointer}
 #updbar.on{display:block}
 </style>
 </head>
 <body>
-<div id="updbar">新しい版があります · タップで更新</div>
 <header>
   <h1>🌏 <span data-en="Places I've Been">訪れた国</span></h1>
   <div class="count"><b id="hdCount">0</b> / 195 <span data-en="countries">か国</span></div>
 </header>
+<div id="bkbar"></div>
+<div id="updbar">新しい版があります · タップで更新</div>
 <main>
   <section class="view on" id="mapView">
     <svg id="map"></svg>
@@ -217,7 +223,7 @@ textarea{min-height:64px;resize:vertical}
     </div>
     <div class="card">
       <h2 data-en="Backup">バックアップ</h2>
-      <p data-en="Your records are saved only on this device (it works offline). Save a backup file from time to time, in case you change phones or your browser data is deleted. On iPhone: Share sheet → &quot;Save to Files&quot; → iCloud Drive.">記録はこの端末の中だけに保存されます（オフラインでも使えます）。機種変更やブラウザのデータ削除に備えて、ときどきファイルに保存してください。iPhoneは共有シート →「"ファイル"に保存」→ iCloud Drive がおすすめです。</p>
+      <p data-en="Your records are saved only on this device. To keep them safe even if the app or your phone is lost, save a file to iCloud Drive. When you have changed something and have not backed up today, a reminder appears at the top. Tap &quot;Save&quot; → &quot;Save to Files&quot; → iCloud Drive. The file is always called visited-backup.json, so choose &quot;Replace&quot; and you will only ever have one file.">記録はこの端末の中だけに保存されます。アプリやスマホが壊れても大丈夫なように、iCloud Drive にファイルで保存してください。記録を変えた日にまだバックアップしていないと、画面の上にお知らせが出ます。「保存」→「"ファイル"に保存」→ iCloud Drive を選んでください。ファイル名はいつも visited-backup.json なので、「置き換える」を選べばファイルは1つだけで増えません。</p>
       <div class="minis" id="bkInfo" style="margin-bottom:6px"></div>
       <p id="bkLast"></p>
       <button class="btn" id="exportBtn" data-en="Save to a file">ファイルに保存</button>
@@ -226,7 +232,7 @@ textarea{min-height:64px;resize:vertical}
     </div>
     <div class="card">
       <h2 data-en="Automatic copies">自動コピー</h2>
-      <p data-en="The app keeps one copy of your records per day on this device (up to 14 days). If something goes wrong, you can go back to one of them.">記録のコピーを、1日1つ端末に残しています（最大14日分）。何かあったときは、ここから戻せます。</p>
+      <p data-en="Separately, the app keeps one copy per day inside the app (up to 14 days). Copies older than that are deleted automatically. These live on this phone, so they are lost if the app is deleted — that is why the iCloud file matters too.">これとは別に、アプリの中にも1日1つコピーを残しています（最大14日分）。それより古いものは自動で消えます。このコピーはスマホの中にあるので、アプリごと消えると一緒に消えます。だから iCloud のファイルも大事です。</p>
       <div id="snapList"></div>
     </div>
     <div class="card">
@@ -262,7 +268,7 @@ textarea{min-height:64px;resize:vertical}
 <script src="vendor/topojson-client.min.js"></script>
 <script src="countries.js"></script>
 <script>
-const APP_VERSION = 'v7';
+const APP_VERSION = 'v8';
 let LANG='en'; try{LANG=localStorage.getItem('visited.lang')||'en'}catch(e){}
 const L = LANG==='en';
 const tr = (ja,en) => L?en:ja;
@@ -348,7 +354,7 @@ async function snapshot(){
   }catch(e){}
 }
 addEventListener('pagehide',flush);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)flush()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)flush(); else if(loaded) checkBackupBar();});
 
 // 読み込んだデータを安全な形にそろえる（バックアップ読み込みにも使う）
 function clean(s){
@@ -892,19 +898,42 @@ function ask(msg,yes='OK'){return new Promise(res=>{$('#modalMsg').textContent=m
   $('#modalYes').onclick=()=>{$('#modal').classList.remove('on');res(true)};$('#modalNo').onclick=()=>{$('#modal').classList.remove('on');res(false)}})}
 
 /* ---------- バックアップ ---------- */
-$('#exportBtn').onclick=async()=>{
-  const d=new Date(), name=`visited-backup-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}.json`;
+// ファイル名はいつも同じ。iCloud Drive の同じ場所に保存すると「置き換え」になり、ファイルが増えない
+const BACKUP_NAME='visited-backup.json';
+$('#exportBtn').onclick=()=>exportBackup();
+async function exportBackup(){
+  const name=BACKUP_NAME;
   // 国の状態・旅行（日付・都市・メモ）・都市・メモ・色をすべて入れる
   const {lastBackup,...data}=state;
   const blob=new Blob([JSON.stringify({app:'visited-countries',exported:new Date().toISOString(),...data})],{type:'application/json'});
   const file=new File([blob],name,{type:'application/json'});
-  const done=()=>{state.lastBackup=Date.now(); save(); renderBackup();};
+  const done=()=>{state.lastBackup=Date.now(); save(); renderBackup(); hideBackupBar(); toast(tr('バックアップしました','Backed up'));};
   if(navigator.canShare&&navigator.canShare({files:[file]})){
     try{await navigator.share({files:[file],title:name});done();return}catch(e){if(e.name==='AbortError')return}
   }
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),5000); done();
-};
+}
+/* ---------- 毎日のバックアップのお知らせ ----------
+   記録を変えたのに、今日まだバックアップしていないとき、開いたときに上に出す。
+   「あとで」を押したら、その日はもう出さない。 */
+const todayStr=()=>{const d=new Date();return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`};
+function needBackup(){
+  if(!placesOf(state)) return false;
+  const lb=state.lastBackup||0;
+  const changedSince=(state.updated||0)-lb>5000;           // 前回のバックアップのあとに変更がある
+  const notToday=!lb||new Date(lb).toDateString()!==new Date().toDateString();
+  return changedSince&&notToday;
+}
+function checkBackupBar(){
+  let skipped=''; try{skipped=localStorage.getItem('visited.bkSkip')||''}catch(e){}
+  if(!needBackup()||skipped===todayStr()) return hideBackupBar();
+  const b=$('#bkbar'); b.classList.add('on');
+  b.innerHTML=`<span>💾 ${tr('今日の記録をバックアップしましょう','Back up today\'s records')}</span><button id="bkGo">${tr('保存','Save')}</button><button id="bkLater" class="ghost">${tr('あとで','Later')}</button>`;
+  $('#bkGo').onclick=()=>exportBackup();
+  $('#bkLater').onclick=()=>{try{localStorage.setItem('visited.bkSkip',todayStr())}catch(e){} hideBackupBar();};
+}
+function hideBackupBar(){const b=$('#bkbar'); if(b){b.classList.remove('on'); b.innerHTML='';}}
 function counts(s=state){
   let places=0,trips=0,cities=0;
   for(const r of Object.values(s.c)){places++; trips+=(r.trips||[]).length; cities+=(r.cities||[]).length}
@@ -953,6 +982,7 @@ $('#resetBtn').onclick=async()=>{
   }
   document.querySelectorAll('#langSel button').forEach(b=>{b.classList.toggle('on',b.dataset.lang===LANG); b.onclick=()=>{if(b.dataset.lang===LANG)return; try{localStorage.setItem('visited.lang',b.dataset.lang)}catch(e){} flush(); location.reload();}});
   await load();
+  checkBackupBar();
   if(!canSave){ const w=document.createElement('div'); w.id='warnbar'; w.textContent=tr('記録を読み込めませんでした。消えないように、いまは保存を止めています。アプリを閉じて開きなおしてください。','Could not read your records. Saving is paused so nothing gets overwritten. Please close and reopen the app.'); document.body.prepend(w); }
   applyColors(); renderLegend();
   $('#hdCount').textContent=ALL.filter(c=>c.isC&&DONE(stOf(c.code))).length;
