@@ -177,6 +177,7 @@ textarea{min-height:64px;resize:vertical}
 .modal .btn.del{background:var(--sel)}
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-size:14px;z-index:30;display:none;max-width:90vw}
 .toast.on{display:block}
+#warnbar{background:var(--sel);color:#fff;text-align:center;padding:8px 12px;font-size:14px}
 #updbar{display:none;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:14px;cursor:pointer}
 #updbar.on{display:block}
 </style>
@@ -224,6 +225,11 @@ textarea{min-height:64px;resize:vertical}
       <input type="file" id="importFile" accept=".json,application/json,text/plain" hidden>
     </div>
     <div class="card">
+      <h2 data-en="Automatic copies">自動コピー</h2>
+      <p data-en="The app keeps one copy of your records per day on this device (up to 14 days). If something goes wrong, you can go back to one of them.">記録のコピーを、1日1つ端末に残しています（最大14日分）。何かあったときは、ここから戻せます。</p>
+      <div id="snapList"></div>
+    </div>
+    <div class="card">
       <h2 data-en="Add to Home Screen">ホーム画面に追加</h2>
       <p data-en="Open this page in Safari, tap Share → &quot;Add to Home Screen&quot;. Then it opens like an app and works with no signal. You need the internet only the first time.">Safariで開いて 共有 →「ホーム画面に追加」すると、アプリのように開けて、圏外でも使えます。最初の1回だけネットが必要です。</p>
     </div>
@@ -256,7 +262,7 @@ textarea{min-height:64px;resize:vertical}
 <script src="vendor/topojson-client.min.js"></script>
 <script src="countries.js"></script>
 <script>
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 let LANG='en'; try{LANG=localStorage.getItem('visited.lang')||'en'}catch(e){}
 const L = LANG==='en';
 const tr = (ja,en) => L?en:ja;
@@ -284,11 +290,27 @@ let dbP=null;
 function idb(){return dbP||(dbP=new Promise((res,rej)=>{const r=indexedDB.open('visited',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}))}
 async function idbGet(){const db=await idb();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get('state');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 async function idbPut(v){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,'state');t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+/* ---------- 記録を消さないための守り（v7） ----------
+   1. 読み込みが終わるまでは一切書きこまない（以前は、読み込み前に画面が隠れたり更新で再読み込みすると、空の記録で上書きされるおそれがあった）
+   2. 読み込みに失敗したら書きこまない（警告を出す）
+   3. 記録が急に空になる書きこみは、リセット・読み込み・自動コピーから戻す以外では止める
+   4. 毎日、自動コピーを端末に残す（最大14日分）。設定から戻せる */
+let loaded=false, canSave=true, allowShrink=false, storedPlaces=0;
+const placesOf = s => Object.keys(s?.c||{}).length;
+async function idbGetKey(k){const db=await idb();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+async function idbPutKey(k,v){const db=await idb();return new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
 async function load(){
-  let s=null;
-  try{const raw=await idbGet(); if(raw) s=JSON.parse(raw)}catch(e){}
-  if(!s){try{const raw=localStorage.getItem(LS_KEY); if(raw) s=JSON.parse(raw)}catch(e){}}
-  if(s&&s.c) state=clean(s);
+  let fromIdb=null, fromLs=null, idbOk=true, lsOk=true;
+  try{const raw=await idbGet(); if(raw) fromIdb=JSON.parse(raw)}catch(e){idbOk=false}
+  try{const raw=localStorage.getItem(LS_KEY); if(raw) fromLs=JSON.parse(raw)}catch(e){lsOk=false}
+  // 2か所のうち、記録があって新しいほうを使う（片方が空ならもう片方）
+  const cands=[fromIdb,fromLs].filter(s=>s&&s.c);
+  cands.sort((a,b)=>(placesOf(b)>0)-(placesOf(a)>0)||(b.updated||0)-(a.updated||0));
+  if(cands[0]) state=clean(cands[0]);
+  if(!idbOk&&!lsOk){ canSave=false; }
+  storedPlaces=placesOf(state);
+  loaded=true;
+  snapshot();
 }
 let saveTimer=null;
 function save(){
@@ -298,9 +320,32 @@ function save(){
 }
 function flush(){
   clearTimeout(saveTimer);
+  if(!loaded||!canSave) return;
+  const n=placesOf(state);
+  if(storedPlaces>=2&&n===0&&!allowShrink){ console.warn('空の記録での上書きを止めました'); return; }
+  allowShrink=false;
   const raw=JSON.stringify(state);
   idbPut(raw).catch(()=>{});
   try{localStorage.setItem(LS_KEY,raw)}catch(e){}
+  storedPlaces=n;
+  snapshot();
+}
+// その日の自動コピー（記録が1件以上あるときだけ）
+let snapDay='';
+async function snapshot(){
+  try{
+    const n=placesOf(state); if(!n) return;
+    const d=new Date(), day=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const list=(await idbGetKey('snaps'))||[];
+    const i=list.findIndex(x=>x.day===day);
+    // その日のコピーは、記録が減ったときは上書きしない（減る前を残す）
+    if(i>=0&&list[i].places>n) return;
+    const item={day,t:Date.now(),places:n,trips:Object.values(state.c).reduce((a,r)=>a+(r.trips||[]).length,0),raw:JSON.stringify(state)};
+    if(i>=0) list[i]=item; else list.push(item);
+    list.sort((a,b)=>b.day.localeCompare(a.day));
+    await idbPutKey('snaps',list.slice(0,14));
+    snapDay=day;
+  }catch(e){}
 }
 addEventListener('pagehide',flush);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)flush()});
@@ -835,7 +880,7 @@ function show(v){
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   if(v==='mapView'&&svg) layout();
-  if(v==='setView'){ renderColors(); renderBackup(); }
+  if(v==='setView'){ renderColors(); renderBackup(); renderSnaps(); }
   renderVisible();
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
@@ -865,6 +910,15 @@ function counts(s=state){
   for(const r of Object.values(s.c)){places++; trips+=(r.trips||[]).length; cities+=(r.cities||[]).length}
   return {places,trips,cities};
 }
+async function renderSnaps(){
+  let list=[]; try{list=(await idbGetKey('snaps'))||[]}catch(e){}
+  $('#snapList').innerHTML=list.length?list.map((x,i)=>`<div class="colrow"><span>${esc(L?new Date(x.day+'T12:00').toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}):x.day.replace(/-/g,'/'))}<br><small class="muted">${tr(`${x.places}か国・地域 · 旅行${x.trips}回`,`${pl(x.places,'place')} · ${pl(x.trips,'trip')}`)}</small></span><button class="btn ghost small" data-snap="${i}">${tr('これに戻す','Restore')}</button></div>`).join(''):`<p>${tr('まだありません（記録を入れると、その日のコピーが作られます）。','None yet. A copy is made on each day you have records.')}</p>`;
+  $('#snapList').onclick=async e=>{
+    const b=e.target.closest('[data-snap]'); if(!b) return; const x=list[+b.dataset.snap];
+    if(!await ask(tr(`${x.day.replace(/-/g,'/')} のコピー（${x.places}か国・地域、旅行${x.trips}回）に戻しますか？今の記録は置き換わります。`,`Go back to the copy from ${x.day} (${pl(x.places,'place')}, ${pl(x.trips,'trip')})? Your current records will be replaced.`),tr('戻す','Restore'))) return;
+    const ns=clean(JSON.parse(x.raw)); ns.lastBackup=state.lastBackup; allowShrink=true; state=ns; applyColors(); save(); changed(); renderColors(); renderBackup(); toast(tr('戻しました','Restored'));
+  };
+}
 function renderBackup(){
   const n=counts();
   $('#bkInfo').innerHTML=`<div><b>${n.places}</b><small>${tr('国・地域','places')}</small></div><div><b>${n.trips}</b><small>${tr('旅行','trips')}</small></div><div><b>${n.cities}</b><small>${tr('都市','cities')}</small></div>`;
@@ -878,14 +932,14 @@ $('#importFile').onchange=async e=>{
     if(!s||typeof s.c!=='object') throw 0;
     const ns=clean(s), n=counts(ns);
     if(!await ask(tr(`このファイルの記録（${n.places}か国・地域、旅行${n.trips}回、都市${n.cities}）で、今の記録を置き換えます。よろしいですか？`,`Replace your current records with this file (${n.places} places, ${n.trips} trips, ${n.cities} cities)?`),tr('置き換える','Replace'))) return;
-    ns.lastBackup=state.lastBackup; state=ns; applyColors(); save(); changed(); renderColors(); renderBackup(); toast(tr(`読み込みました（旅行${n.trips}回・都市${n.cities}）`,`Restored (${n.trips} trips, ${n.cities} cities)`));
+    ns.lastBackup=state.lastBackup; allowShrink=true; state=ns; applyColors(); save(); changed(); renderColors(); renderBackup(); toast(tr(`読み込みました（旅行${n.trips}回・都市${n.cities}）`,`Restored (${n.trips} trips, ${n.cities} cities)`));
   }catch(err){toast(tr('読み込めませんでした（形式が違うファイルです）','Could not read this file (wrong format)'))}
 };
 $('#resetBtn').onclick=async()=>{
   const n=Object.keys(state.c).length;
   if(!n){toast(tr('記録はまだありません','No records yet'));return}
   if(!await ask(tr(`${n}件の記録をすべて消します。元に戻せません。先にバックアップを保存しましたか？`,`This deletes all ${n} records and cannot be undone. Did you save a backup first?`),tr('消す','Delete'))) return;
-  state={v:2,c:{},colors:state.colors,updated:Date.now()}; save(); changed(); toast(tr('消しました','Deleted'));
+  allowShrink=true; state={v:2,c:{},colors:state.colors,updated:Date.now()}; save(); changed(); toast(tr('消しました','Deleted'));
 };
 
 /* ---------- 起動 ---------- */
@@ -899,6 +953,7 @@ $('#resetBtn').onclick=async()=>{
   }
   document.querySelectorAll('#langSel button').forEach(b=>{b.classList.toggle('on',b.dataset.lang===LANG); b.onclick=()=>{if(b.dataset.lang===LANG)return; try{localStorage.setItem('visited.lang',b.dataset.lang)}catch(e){} flush(); location.reload();}});
   await load();
+  if(!canSave){ const w=document.createElement('div'); w.id='warnbar'; w.textContent=tr('記録を読み込めませんでした。消えないように、いまは保存を止めています。アプリを閉じて開きなおしてください。','Could not read your records. Saving is paused so nothing gets overwritten. Please close and reopen the app.'); document.body.prepend(w); }
   applyColors(); renderLegend();
   $('#hdCount').textContent=ALL.filter(c=>c.isC&&DONE(stOf(c.code))).length;
   try{ const world=await (await fetch('world.json')).json(); initMap(world); }
